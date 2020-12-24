@@ -1,0 +1,46 @@
+behaviors:
+  CarAgent:
+    behavioral_cloning: null
+    checkpoint_interval: 200000
+    hyperparameters: {batch_size: 256, buffer_init_steps: 60000, buffer_size: 500000,
+      init_entcoef: 1.0, learning_rate: 0.0003, learning_rate_schedule: constant,
+      reward_signal_steps_per_update: 1, save_replay_buffer: false, steps_per_update: 1,
+      tau: 0.005}
+    init_path: null
+    keep_checkpoints: 5
+    max_steps: 1000000
+    network_settings: {hidden_units: 512, memory: null, normalize: true, num_layers: 3,
+      vis_encode_type: simple}
+    reward_signals:
+      extrinsic: {gamma: 0.99, strength: 1.0}
+    self_play: null
+    summary_freq: 10000
+    threaded: true
+    time_horizon: 1000
+    trainer_type: sac
+  default:
+    behavioral_cloning: null
+    checkpoint_interval: 500000
+    hyperparameters: {batch_size: 128, buffer_init_steps: 0, buffer_size: 50000, init_entcoef: 1.0,
+      learning_rate: 0.0003, learning_rate_schedule: constant, reward_signal_steps_per_update: 1.0,
+      save_replay_buffer: false, steps_per_update: 1.0, tau: 0.005}
+    init_path: null
+    keep_checkpoints: 5
+    max_steps: 500000
+    network_settings: {hidden_units: 128, memory: null, normalize: false, num_layers: 2,
+      vis_encode_type: simple}
+    reward_signals:
+      extrinsic: {gamma: 0.99, strength: 1.0}
+    self_play: null
+    summary_freq: 10000
+    threaded: true
+    time_horizon: 64
+    trainer_type: sac
+checkpoint_settings: {force: false, inference: false, initialize_from: null, load_model: false,
+  resume: true, run_id: carchase03, train_model: false}
+debug: false
+engine_settings: {capture_frame_rate: 60, height: 84, no_graphics: false, quality_level: 5,
+  target_frame_rate: -1, time_scale: 20, width: 84}
+env_settings: {base_port: 5005, env_args: null, env_path: /content/Car_Chase_Headless_Build/CarChase03.x86_64,
+  num_envs: 5, seed: -1}
+environment_parameters: null

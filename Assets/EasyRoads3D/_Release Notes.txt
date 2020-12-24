@@ -1,0 +1,17 @@
+Release Notes v3.1.9f4 : 05-05-2020
+
+Version changes according EasyRoads3D Pro v3.1.9f3 that also apply to the free version
+
+Full Release notes:
+http://www.easyroads3d.com/releaseNotes.php
+
+Forum: http://forum.unity3d.com/threads/easyroads3d-v3-the-upcoming-new-road-system.229327/
+
+
+Install Notes:
+
+To install this update in an existing EasyRoads3D project it is recommended to follow the next steps:
+
+1. Open a new scene.
+2. Simply import package updates over the existing install without first removing the previous package.
+3. Open your scene.
