@@ -90,6 +90,33 @@
                     "isPartOfComposite": false
                 }
             ]
+        },
+        {
+            "name": "Obstacle",
+            "id": "977e51d1-f379-4882-907c-c2a812dacbbf",
+            "actions": [
+                {
+                    "name": "Obstacle State",
+                    "type": "Button",
+                    "id": "3aa21b1e-161f-402f-82d3-195bbedc680a",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": ""
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "b13c9e4a-8f15-46dc-96bc-915950313123",
+                    "path": "<Keyboard>/t",
+                    "interactions": "Press",
+                    "processors": "",
+                    "groups": "Keyboard",
+                    "action": "Obstacle State",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
         }
     ],
     "controlSchemes": [

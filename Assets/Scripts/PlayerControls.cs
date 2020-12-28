@@ -103,6 +103,33 @@ public class @PlayerControls : IInputActionCollection, IDisposable
                     ""isPartOfComposite"": false
                 }
             ]
+        },
+        {
+            ""name"": ""Obstacle"",
+            ""id"": ""977e51d1-f379-4882-907c-c2a812dacbbf"",
+            ""actions"": [
+                {
+                    ""name"": ""Obstacle State"",
+                    ""type"": ""Button"",
+                    ""id"": ""3aa21b1e-161f-402f-82d3-195bbedc680a"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """"
+                }
+            ],
+            ""bindings"": [
+                {
+                    ""name"": """",
+                    ""id"": ""b13c9e4a-8f15-46dc-96bc-915950313123"",
+                    ""path"": ""<Keyboard>/t"",
+                    ""interactions"": ""Press"",
+                    ""processors"": """",
+                    ""groups"": ""Keyboard"",
+                    ""action"": ""Obstacle State"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                }
+            ]
         }
     ],
     ""controlSchemes"": [
@@ -123,6 +150,9 @@ public class @PlayerControls : IInputActionCollection, IDisposable
         m_Car = asset.FindActionMap("Car", throwIfNotFound: true);
         m_Car_Movement = m_Car.FindAction("Movement", throwIfNotFound: true);
         m_Car_Brake = m_Car.FindAction("Brake", throwIfNotFound: true);
+        // Obstacle
+        m_Obstacle = asset.FindActionMap("Obstacle", throwIfNotFound: true);
+        m_Obstacle_ObstacleState = m_Obstacle.FindAction("Obstacle State", throwIfNotFound: true);
     }
 
     public void Dispose()
@@ -209,6 +239,39 @@ public class @PlayerControls : IInputActionCollection, IDisposable
         }
     }
     public CarActions @Car => new CarActions(this);
+
+    // Obstacle
+    private readonly InputActionMap m_Obstacle;
+    private IObstacleActions m_ObstacleActionsCallbackInterface;
+    private readonly InputAction m_Obstacle_ObstacleState;
+    public struct ObstacleActions
+    {
+        private @PlayerControls m_Wrapper;
+        public ObstacleActions(@PlayerControls wrapper) { m_Wrapper = wrapper; }
+        public InputAction @ObstacleState => m_Wrapper.m_Obstacle_ObstacleState;
+        public InputActionMap Get() { return m_Wrapper.m_Obstacle; }
+        public void Enable() { Get().Enable(); }
+        public void Disable() { Get().Disable(); }
+        public bool enabled => Get().enabled;
+        public static implicit operator InputActionMap(ObstacleActions set) { return set.Get(); }
+        public void SetCallbacks(IObstacleActions instance)
+        {
+            if (m_Wrapper.m_ObstacleActionsCallbackInterface != null)
+            {
+                @ObstacleState.started -= m_Wrapper.m_ObstacleActionsCallbackInterface.OnObstacleState;
+                @ObstacleState.performed -= m_Wrapper.m_ObstacleActionsCallbackInterface.OnObstacleState;
+                @ObstacleState.canceled -= m_Wrapper.m_ObstacleActionsCallbackInterface.OnObstacleState;
+            }
+            m_Wrapper.m_ObstacleActionsCallbackInterface = instance;
+            if (instance != null)
+            {
+                @ObstacleState.started += instance.OnObstacleState;
+                @ObstacleState.performed += instance.OnObstacleState;
+                @ObstacleState.canceled += instance.OnObstacleState;
+            }
+        }
+    }
+    public ObstacleActions @Obstacle => new ObstacleActions(this);
     private int m_KeyboardSchemeIndex = -1;
     public InputControlScheme KeyboardScheme
     {
@@ -222,5 +285,9 @@ public class @PlayerControls : IInputActionCollection, IDisposable
     {
         void OnMovement(InputAction.CallbackContext context);
         void OnBrake(InputAction.CallbackContext context);
+    }
+    public interface IObstacleActions
+    {
+        void OnObstacleState(InputAction.CallbackContext context);
     }
 }

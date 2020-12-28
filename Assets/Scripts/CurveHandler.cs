@@ -5,33 +5,28 @@ using UnityEngine;
 public class CurveHandler : MonoBehaviour
 {
     public List<Vector2> m_convexhull = new List<Vector2>();
+
+
+    /// <summary>
+    /// Sorts in clockwise order around m_origin point
+    /// </summary>
     public class ClockwiseComparer : IComparer<Vector2>
     {
-        private Vector2 m_Origin;
-        
-        /// <summary>
-        ///     Gets or sets the origin.
-        /// </summary>
-        /// <value>The origin.</value>
-        public Vector2 origin { get { return m_Origin; } set { m_Origin = value; } }
+        private Vector2 m_origin;
+       
+        public Vector2 Origin { get { return m_origin; } set { m_origin = value; } }
 
-        /// <summary>
-        ///     Initializes a new instance of the ClockwiseComparer class.
-        /// </summary>
-        /// <param name="origin">Origin.</param>
         public ClockwiseComparer(Vector2 origin)
         {
-            m_Origin = origin;
+            m_origin = origin;
         }
 
         /// <summary>
         ///     Compares two objects and returns a value indicating whether one is less than, equal to, or greater than the other.
         /// </summary>
-        /// <param name="first">First.</param>
-        /// <param name="second">Second.</param>
         public int Compare(Vector2 first, Vector2 second)
         {
-            return IsClockwise(first, second, m_Origin);
+            return IsClockwise(first, second, m_origin);
         }
 
         /// <summary>
@@ -39,9 +34,6 @@ public class CurveHandler : MonoBehaviour
         ///     Returns -1 if second comes before first.
         ///     Returns 0 if the points are identical.
         /// </summary>
-        /// <param name="first">First.</param>
-        /// <param name="second">Second.</param>
-        /// <param name="origin">Origin.</param>
         public static int IsClockwise(Vector2 first, Vector2 second, Vector2 origin)
         {
             if (first == second)
@@ -64,45 +56,45 @@ public class CurveHandler : MonoBehaviour
         }
     }
 
-    int findSide(Vector2 _point1, Vector2 _point2, Vector2 _point_maxdist)
+    int FindSide(Vector2 _point1, Vector2 _point2, Vector2 _point_maxdist)
     {
-        int val = lineDist(_point1, _point2, _point_maxdist);
+        int _val = LineDist(_point1, _point2, _point_maxdist);
 
-        if (val > 0)
+        if (_val > 0)
             return 1;
-        if (val < 0)
+        if (_val < 0)
             return -1;
         return 0;
     }
 
-    // returns _points value proportional to the distance 
-    // between the point _point_maxdist and the line joining the 
-    // _points _point1 and _point2 
-    int lineDist(Vector2 _point1, Vector2 _point2, Vector2 _point_maxdist)
+    // returns points value proportional to the distance 
+    // between the point _pointMaxDist and the line joining the 
+    // points _point1 and _point2 
+    int LineDist(Vector2 _point1, Vector2 _point2, Vector2 _pointMaxDist)
     {
-        return (int)((_point_maxdist.y - _point1.y) * (_point2.x - _point1.x) -
-                   (_point2.y - _point1.y) * (_point_maxdist.x - _point1.x));
+        return (int)((_pointMaxDist.y - _point1.y) * (_point2.x - _point1.x) -
+                   (_point2.y - _point1.y) * (_pointMaxDist.x - _point1.x));
     }
 
 
-    void quickHull(List<Vector2> _points, int _size, Vector2 _point1, Vector2 _point2, int _side)
+    void QuickHull(List<Vector2> _points, int _size, Vector2 _point1, Vector2 _point2, int _side)
     {
         int _index = -1;
         int _max_dist = 0;
 
         // finding the point with maximum distance 
-        // from L and also on the specified _side of L. 
+        // from L and also on the specified side of L. 
         for (int i = 0; i < _size; i++)
         {
-            int _temp = Mathf.Abs(lineDist(_point1, _point2, _points[i]));
-            if (findSide(_point1, _point2, _points[i]) == _side && _temp > _max_dist)
+            int _temp = Mathf.Abs(LineDist(_point1, _point2, _points[i]));
+            if (FindSide(_point1, _point2, _points[i]) == _side && _temp > _max_dist)
             {
                 _index = i;
                 _max_dist = _temp;
             }
         }
 
-        // If no point is found, add the end _points 
+        // If no point is found, add the end points 
         // of L to the convex hull. 
         if (_index == -1)
         {
@@ -113,33 +105,33 @@ public class CurveHandler : MonoBehaviour
         }
 
         // Recur for the two parts divided by _points[_index] 
-        quickHull(_points, _size, _points[_index], _point1, -findSide(_points[_index], _point1, _point2));
-        quickHull(_points, _size, _points[_index], _point2, -findSide(_points[_index], _point2, _point1));
+        QuickHull(_points, _size, _points[_index], _point1, -FindSide(_points[_index], _point1, _point2));
+        QuickHull(_points, _size, _points[_index], _point2, -FindSide(_points[_index], _point2, _point1));
     }
 
-    public void Createconvexhull(List<Vector2> _points, int _size)
+    public void CreateConvexhull(List<Vector2> _points, int _size)
     {
 
         // Finding the point with minimum and 
         // maximum x-coordinate 
-        int _min_x = 0, max_x = 0;
+        int _minX = 0, _maxX = 0;
         for (int i = 1; i < _size; i++)
         {
-            if (_points[i].x < _points[_min_x].x)
-                _min_x = i;
-            if (_points[i].x > _points[max_x].x)
-                max_x = i;
+            if (_points[i].x < _points[_minX].x)
+                _minX = i;
+            if (_points[i].x > _points[_maxX].x)
+                _maxX = i;
         }
 
-        // Recursively find convex hull _points on 
-        // one _side of line joining _points[_min_x] and 
-        // _points[max_x] 
-        quickHull(_points, _size, _points[_min_x], _points[max_x], 1);
+        // Recursively find convex hull points on 
+        // one side of line joining _points[_minX] and 
+        // _points[_maxX] 
+        QuickHull(_points, _size, _points[_minX], _points[_maxX], 1);
 
         // Recursively find convex hull _points on 
-        // other _side of line joining _points[_min_x] and 
-        // _points[max_x] 
-        quickHull(_points, _size, _points[_min_x], _points[max_x], -1);
+        // other _side of line joining _points[_minX] and 
+        // _points[_maxX] 
+        QuickHull(_points, _size, _points[_minX], _points[_maxX], -1);
 
 
     }

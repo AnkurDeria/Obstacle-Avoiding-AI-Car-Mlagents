@@ -17,16 +17,13 @@ public class RoadGenerator : MonoBehaviour
     [Range(3,100)]
     public uint pointDensity;
     public Transform waypointParent;
-    public Transform obstacleParent;
     [Range(1, 100)]
     public float smoothness;
     [Range(3, 10)]
     public float roadOffset;
     public List<Transform> waypoints = new List<Transform>();
-    public List<Transform> obstacles = new List<Transform>();
     public List<Vector3> vertices = new List<Vector3>();
-    [Range(0.1f, 100f)]
-    public float obstacleSpeed;
+    public RoadBounds m_roadBounds;
 
 
     private CurveHandler m_curves ;
@@ -34,13 +31,9 @@ public class RoadGenerator : MonoBehaviour
     private List<int> m_triangles = new List<int>();
     private List<Vector3> m_normals = new List<Vector3>();
     private GameObject m_waypoint;
-    public RoadBounds m_roadBounds;
-    //private LineRenderer lineRenderer;
     private MeshCollider m_meshCollider;
     private Mesh m_mesh;
-    private List<Vector3> m_obstacleMoveDir = new List<Vector3>();
-    private List<Vector3> m_roadMid = new List<Vector3>();
-    private List<float> m_obstacleRandSpeed = new List<float>();
+    
     void Start()
     {
         m_curves = transform.GetComponent<CurveHandler>();
@@ -48,16 +41,14 @@ public class RoadGenerator : MonoBehaviour
         m_meshCollider = transform.GetComponent<MeshCollider>();
         //GenTrack();
     }
-    private void FixedUpdate()
-    {
-        for (int i = 0; i < obstacles.Count; i++)
-        {
-            obstacles[i].GetComponent<Rigidbody>().MovePosition(transform.TransformPoint(m_roadMid[i])+ (transform.TransformDirection(m_obstacleMoveDir[i]) * Mathf.Sin(Time.time*m_obstacleRandSpeed[i]*obstacleSpeed) * (roadOffset-0.5f)) );
-            
-        }
-    }
+
+
+    /// <summary>
+    /// Generate the road
+    /// </summary>
     public void GenTrack()
     {
+        //Clear all variables every time a new road is made
         m_mesh.Clear();
         m_randPoints.Clear();
         m_curves.m_convexhull.Clear();
@@ -65,52 +56,32 @@ public class RoadGenerator : MonoBehaviour
         m_triangles.Clear();
         m_normals.Clear();
         waypoints.Clear();
-        obstacles.Clear();
-        m_obstacleRandSpeed.Clear();
-        m_roadMid.Clear();
         foreach (Transform child in waypointParent)
             GameObject.Destroy(child.gameObject);
-        foreach (Transform child in obstacleParent)
-            GameObject.Destroy(child.gameObject);
-        GenPoints();
-        //Debug.Log("Size of random points = " + m_randpoints.Count);
-        m_curves.Createconvexhull(m_randPoints, m_randPoints.Count);
-        //curves.m_convexhull = m_randpoints;
-        //Debug.Log("Size of convex hull = " + curves.m_convexhull.Count);
         
-        m_curves.m_convexhull.Sort(new CurveHandler.ClockwiseComparer(new Vector2(0, 0)));
+        //Generate random points
+        GenPoints();
+        //Get convexhull of the random points
+        m_curves.CreateConvexhull(m_randPoints, m_randPoints.Count);
+        //Sort the convexhull in clockwise order
+        m_curves.m_convexhull.Sort(new CurveHandler.ClockwiseComparer(new Vector2(transform.localPosition.x, transform.localPosition.z)));
+        //Smooth the resultant convexhull
         m_curves.m_convexhull = MakeSmoothCurve(m_curves.m_convexhull);
        
         GenMesh();
         GenWaypoints();
+        //Use the generated mesh as mesh collider too
         m_meshCollider.sharedMesh = m_mesh;
-        GenObstacles();
-       
     }
 
-    private void GenObstacles()
-    {
-        GameObject _obstacle = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        _obstacle.tag = "Obstacle";
-        _obstacle.AddComponent<Rigidbody>().mass = 500;
-       
-        for(int i=3;i<m_curves.m_convexhull.Count - 2;i++)
-        {
-            if(UnityEngine.Random.value > 0.6f)
-            {
-                //float _t = UnityEngine.Random.value;
-                //obstacles.Add(Instantiate(_obstacle,transform.TransformPoint(new Vector3(Mathf.Lerp(vertices[2*i].x,vertices[(2*i)+1].x, _t), _obstacle.GetComponent<BoxCollider>().size.y / 2f,Mathf.Lerp(vertices[2 * i].z, vertices[(2 * i) + 1].z, _t)) ), Quaternion.Euler(0f,UnityEngine.Random.Range(-180f,180f),0f), obstacleParent).transform);
-                m_roadMid.Add(new Vector3((vertices[2 * i].x + vertices[(2 * i) + 1].x) / 2f, _obstacle.GetComponent<SphereCollider>().radius, (vertices[2 * i].z + vertices[(2 * i) + 1].z) / 2f));
-                obstacles.Add(Instantiate(_obstacle, transform.TransformPoint(m_roadMid[m_roadMid.Count-1]), Quaternion.Euler(0f, UnityEngine.Random.Range(-180f, 180f), 0f), obstacleParent).transform);
-                m_obstacleMoveDir.Add((vertices[2 * i] - vertices[(2 * i) + 1]).normalized);
-                m_obstacleRandSpeed.Add( UnityEngine.Random.value);
-            }
-        }
-        GameObject.Destroy(_obstacle);
-    }
 
+
+    /// <summary>
+    /// Generates the checkpoints on the road
+    /// </summary>
     private void GenWaypoints()
     {
+        //Creating the gameobject to instantiate on road
         m_waypoint = new GameObject("Waypoint");
         m_waypoint.layer = 2;
         m_waypoint.tag = "Waypoint";
@@ -118,6 +89,8 @@ public class RoadGenerator : MonoBehaviour
         BoxCollider _waypointcol = m_waypoint.GetComponent<BoxCollider>();
         _waypointcol.size = new Vector3(2*roadOffset,2* roadOffset,0.5f);
         _waypointcol.isTrigger = true;
+
+        //Instantiating the checkpoints along the road with proper rotation
         Vector3 _vec1, _vec2;
         for(int i=2;i<m_curves.m_convexhull.Count - 2;i+=2)
         {
@@ -130,19 +103,25 @@ public class RoadGenerator : MonoBehaviour
         GameObject.Destroy(m_waypoint);
     }
 
+
+    /// <summary>
+    /// Generates road mesh from the generated convexhull list
+    /// </summary>
     private void GenMesh()
     {
+        //Assigning vertices and normals
         for (int i = 0; i < m_curves.m_convexhull.Count - 1; i++)
         {
-            Vector2 vec2 = (m_curves.m_convexhull[i + 1] - m_curves.m_convexhull[i]).normalized;
-            Vector3 tempvec = new Vector3(vec2.x, 0f, vec2.y);
-            tempvec = Vector3.Cross(tempvec, Vector3.up);
-            Vector3 vec3 = (new Vector3(m_curves.m_convexhull[i].x, 0f, m_curves.m_convexhull[i].y));
-            vertices.Add(vec3 + (tempvec * roadOffset));
+            Vector2 _vec2 = (m_curves.m_convexhull[i + 1] - m_curves.m_convexhull[i]).normalized;
+            Vector3 _vec2tovec3 = new Vector3(_vec2.x, 0f, _vec2.y);
+            _vec2tovec3 = Vector3.Cross(_vec2tovec3, Vector3.up);
+            Vector3 _newvec3 = (new Vector3(m_curves.m_convexhull[i].x, 0f, m_curves.m_convexhull[i].y));
+            vertices.Add(_newvec3 + (_vec2tovec3 * roadOffset));
             m_normals.Add(Vector3.up);
-            vertices.Add(vec3 + (-tempvec * roadOffset));
+            vertices.Add(_newvec3 + (-_vec2tovec3 * roadOffset));
             m_normals.Add(Vector3.up);
         }
+        //Assigning triangle indices
         for (int i = 0; i < vertices.Count - 2; i += 2)
         {
             m_triangles.Add(i);
@@ -152,6 +131,8 @@ public class RoadGenerator : MonoBehaviour
             m_triangles.Add(i + 3);
             m_triangles.Add(i + 1);
         }
+
+        //Setting the values for the mesh
         m_mesh.SetVertices(vertices);
         m_mesh.SetTriangles(m_triangles, 0);
         m_mesh.SetNormals(m_normals);
@@ -159,22 +140,29 @@ public class RoadGenerator : MonoBehaviour
 
     private void GenPoints()
     {
+        //Generating random points within a given area
         for (int i = 0; i < pointDensity; i++)
         {
-            float rand1 = UnityEngine.Random.value;
-            float rand2 = UnityEngine.Random.value;
-            m_randPoints.Add(new Vector2(Map(Mathf.PerlinNoise(rand1, rand2), 0, 1, m_roadBounds.minX, m_roadBounds.maxX), Map(Mathf.PerlinNoise(rand2, rand1), 0, 1, m_roadBounds.minZ, m_roadBounds.maxZ)));
+            float _rand1 = UnityEngine.Random.value;
+            float _rand2 = UnityEngine.Random.value;
+            m_randPoints.Add(new Vector2(transform.localPosition.x + Map(Mathf.PerlinNoise(_rand1, _rand2), 0, 1, m_roadBounds.minX,  m_roadBounds.maxX), transform.localPosition.z + Map(Mathf.PerlinNoise(_rand2, _rand1), 0, 1,  m_roadBounds.minZ,  m_roadBounds.maxZ)));
         }
     }
 
+    /// <summary>
+    /// Remaps given value between a new range
+    /// </summary>
     public float Map(float _value, float _from1, float _to1, float _from2, float _to2)
     {
         return (_value - _from1) / (_to1 - _from1) * (_to2 - _from2) + _from2;
     }
-    
-   
-    // Update is called once per frame
-    public List<Vector2> MakeSmoothCurve(List<Vector2> _arrayToCurve)
+
+
+
+    /// <summary>
+    /// Smooths the generated convexhull
+    /// </summary>
+    private List<Vector2> MakeSmoothCurve(List<Vector2> _arrayToCurve)
     {
         List<Vector2> _points;
         List<Vector2> _curvedPoints;
