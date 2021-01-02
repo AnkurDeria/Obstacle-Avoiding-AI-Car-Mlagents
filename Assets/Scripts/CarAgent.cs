@@ -1,57 +1,61 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using Unity.MLAgents;
+﻿using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Sensors;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 public class CarAgent : Agent
 {
-
-    public Transform target;
+    /// <summary>
+    /// public variables
+    /// </summary>
+  
     public GameObject road;
     public GameObject obstacles;
+    public Transform target;
 
 
 
-    private CarController m_cc;
-    private Rigidbody m_carrigidbody;
-    private WheelCollider[] m_wheelcols;
-    private bool m_allgrounded = false;
-    private Vector3 m_prevtonextcheckpoint;
-    private Vector3 m_prevtocar;
-    private Vector3 m_closestpoint;
-    private float m_laneOffset;
+    /// <summary>
+    /// private variables
+    /// </summary>
+
+    [SerializeField] private bool m_allGrounded = false;
+    [SerializeField] private float m_currentReward;
+    [SerializeField] private float m_distanceToTarget;
+    [SerializeField] private float m_prevDistanceToTarget;
+    [SerializeField] private int m_obstacleHit;
+    [SerializeField] private int m_prevObstacleHit;
+    [SerializeField] private int m_nextCheckpointNumber;
+    [SerializeField] private Vector3 m_dirToTarget;
+   
+    private CarController m_carController;
     private int m_steps;
-    private float m_cuurentReward;
-    private int m_obstacleHit;
-    private Vector3 m_velocity = Vector3.zero;
-    private Vector3 m_dirToTarget;
-    private Transform m_nextcheckpoint;
-    private Vector3 m_prevcheckpointpos;
-    private Vector3 m_checkpointpos;
-    private int m_nextcheckpointnumber;
-    private ObstacleGenerator m_obstaclegen;
-    private Vector2 m_move = new Vector2(0f,0f);
-    private int m_deadcounter = 0;
-    private RoadGenerator m_roadgen;
-    private float m_distancetotarget;
-    private float m_prevdistancetotarget;
-    
+    private int m_deadCounter = 0;
+    private ObstacleGenerator m_obstacleGen;
+    private Rigidbody m_carRigidbody;
+    private RoadGenerator m_roadGen;
+    private Transform m_nextCheckpoint;
+    private Vector2 m_move;
+    private Vector3 m_checkpointPos;
+    private WheelCollider[] m_wheelColliders;
+    private WheelHit m_out;
+
+    //private Vector3 m_prevCheckpointPos;
+    //private Vector3 m_prevToNextCheckpoint;
+    //private Vector3 m_prevToCar;
+    //private Vector3 m_closestPoint;
+    //private float m_laneOffset;
+    //private RaycastHit m_rayout;
 
     public override void Initialize()
     {
-        m_roadgen = road.GetComponent<RoadGenerator>();
-        m_cc = this.transform.GetComponent<CarController>();
-        m_carrigidbody = this.transform.GetComponent<Rigidbody>();
-        m_wheelcols = this.transform.GetComponentsInChildren<WheelCollider>();
-        m_obstaclegen = obstacles.GetComponent<ObstacleGenerator>();
-       
+        m_roadGen = road.GetComponent<RoadGenerator>();
+        m_carController = this.transform.GetComponent<CarController>();
+        m_carRigidbody = this.transform.GetComponent<Rigidbody>();
+        m_wheelColliders = this.transform.GetComponentsInChildren<WheelCollider>();
+        m_obstacleGen = obstacles.GetComponent<ObstacleGenerator>();
     }
 
-    
     public override void OnEpisodeBegin()
     {
         RoadAndObstacleReset();
@@ -59,96 +63,121 @@ public class CarAgent : Agent
         PrivateVariableReset();
     }
 
-    private void RoadAndObstacleReset()
-    {
-        m_roadgen.GenTrack();
-        m_obstaclegen.obstacleState = UnityEngine.Random.Range(0, 3);
-        m_obstaclegen.ObstacleStateChange();
-        m_obstaclegen.obstacleSpeed = UnityEngine.Random.Range(0.1f, 2f);
-    }
-
-    private void PrivateVariableReset()
-    {
-        m_steps = 0;
-        m_cc.AgentMove( Vector2Int.zero);
-        m_cuurentReward = 0;
-        m_obstacleHit = 0;
-        m_deadcounter = 0;
-        m_distancetotarget = Vector3.Distance(m_checkpointpos, transform.localPosition);
-        m_prevdistancetotarget = m_distancetotarget;
-    }
-
-    private void ResetAll()
-    {
-        //Resets checkpoints
-        m_nextcheckpoint = m_roadgen.waypoints[0];
-        m_nextcheckpointnumber = 1;
-
-        //Resets agent velocities
-        m_carrigidbody.velocity = Vector3.zero;
-        m_carrigidbody.angularVelocity = Vector3.zero;
-
-        //Stops movement of all wheel colliders
-        foreach (WheelCollider tempcol in m_wheelcols)
-        {
-            tempcol.brakeTorque = Mathf.Infinity;
-        }
-
-        //Assigns random start point for agent with random rotation
-        transform.localPosition = ((m_roadgen.vertices[1] + m_roadgen.vertices[0] + m_roadgen.vertices[2] + m_roadgen.vertices[3]) / 4f);
-        transform.localRotation = Quaternion.LookRotation((((m_nextcheckpoint.localPosition) - new Vector3(0, m_roadgen.roadOffset, 0)) - transform.localPosition).normalized, Vector3.up);
-        transform.localPosition += new Vector3(0, 0.8f, 0);
-        transform.localPosition += transform.right * UnityEngine.Random.Range((-m_roadgen.roadOffset + 1.5f), (m_roadgen.roadOffset - 1.5f));
-        transform.Rotate(new Vector3(0f, UnityEngine.Random.Range(-60f, 60f), 0f));
-
-        //Assigns starting checkpoint
-        m_checkpointpos = (new Vector3(m_nextcheckpoint.localPosition.x, transform.localPosition.y, m_nextcheckpoint.localPosition.z));
-        m_prevcheckpointpos = transform.localPosition;
-
-        //Assigns target position
-        target.transform.localPosition = ((m_roadgen.vertices[m_roadgen.vertices.Count - 1] + m_roadgen.vertices[m_roadgen.vertices.Count - 2] + m_roadgen.vertices[m_roadgen.vertices.Count - 3] + m_roadgen.vertices[m_roadgen.vertices.Count - 4]) / 4f);
-        target.transform.localPosition += new Vector3(0, 0.5f, 0);
-    }
-
     public override void OnActionReceived(ActionBuffers actions)
     {
-        m_move.x = Mathf.Clamp(actions.ContinuousActions[0],-1f,1f);
-        m_move.y = Mathf.Clamp(actions.ContinuousActions[1],-1f,1f);
-        m_cc.AgentMove(m_move);
+
+        m_move.x = Mathf.Clamp(actions.ContinuousActions[0], -1f, 1f);
+        m_move.y = Mathf.Clamp(actions.ContinuousActions[1], -1f, 1f);
+        m_carController.AgentMove(m_move);
+
     }
 
     public override void Heuristic(in ActionBuffers actionsOut)
     {
         var _actionsOut = actionsOut.ContinuousActions;
-        _actionsOut[0]= m_move.x;
+        _actionsOut[0] = m_move.x;
         _actionsOut[1] = m_move.y;
-        m_cc.AgentMove(m_move);
+        m_carController.AgentMove(m_move);
+
     }
     public override void CollectObservations(VectorSensor sensor)
     {
-        //Calculate the direction to incoming checkpoint
-        m_dirToTarget = (m_checkpointpos - transform.localPosition).normalized;
         // Agent velocity
-        sensor.AddObservation(
-           (m_carrigidbody.velocity).normalized); // vec 3
-        //Position of incoming checkpoint
-        sensor.AddObservation(m_checkpointpos); // vec 3
-        // Direction to next checkpoint in agent frame
-        sensor.AddObservation(m_dirToTarget); // vec 3
-        // Distance of agent from middle of road
-        sensor.AddObservation(m_laneOffset); // float
-        // Agent local rotation
-        sensor.AddObservation(transform.localRotation.normalized); // quaternion
+        sensor.AddObservation(transform.InverseTransformDirection(m_carRigidbody.velocity)); // vec3
+
+        // Distance to incoming checkpoint
+        sensor.AddObservation(m_distanceToTarget); // float
+
+        // Agent's normalized local position
+        sensor.AddObservation(new Vector3(transform.localPosition.x / 500f, transform.localPosition.y / 20f, transform.localPosition.z / 500f)); // vec3
+
+        // Calculate the direction to incoming checkpoint
+        m_dirToTarget = (m_checkpointPos - transform.localPosition).normalized;
+
+        // Dot product of agent forward and direction to incoming checkpoint/target
+        sensor.AddObservation(Vector3.Dot(transform.forward, m_dirToTarget)); //float
+
+        // Agent angular velocity
+        sensor.AddObservation(transform.InverseTransformDirection(m_carRigidbody.angularVelocity)); // vec3
     }
 
+    private void RoadAndObstacleReset()
+    {
+        //Generates the road
+        m_roadGen.GenTrack();
+
+        //Randomly sets road with obstacles or no obstacles (put range 0-3 if you want obstacles to move)
+        m_obstacleGen.obstacleState = UnityEngine.Random.Range(0, 2);
+        m_obstacleGen.ObstacleStateChange();
+        
+        //Sets random speed for obstacles
+        //m_obstacleGen.obstacleSpeed = UnityEngine.Random.Range(0.1f, 2f);
+    }
+
+    private void PrivateVariableReset()
+    {
+        //step count of episode
+        m_steps = 0;
+
+        //movement vector of car
+        m_carController.AgentMove( Vector2Int.zero);
+
+        //variable to store the accumulated reward for each episode for debugging purposes
+        m_currentReward = 0;
+ 
+        m_obstacleHit = 0;
+        m_prevObstacleHit = 0;
+
+        //variable to count how long the agent moves with speed less than minimum threshold (1 used here)
+        m_deadCounter = 0;
+        
+        //Current distance to target and previous recorded distance to target
+        m_distanceToTarget = Vector3.Distance(m_checkpointPos, transform.localPosition);
+        m_prevDistanceToTarget = m_distanceToTarget;
+    }
+
+    private void ResetAll()
+    {
+        //Resets checkpoints
+        m_nextCheckpoint = m_roadGen.waypoints[0];
+        m_nextCheckpointNumber = 1;
+
+        //Resets agent velocities
+        m_carRigidbody.velocity = Vector3.zero;
+        m_carRigidbody.angularVelocity = Vector3.zero;
+
+        //Stops movement of all wheel colliders
+        foreach (WheelCollider tempcol in m_wheelColliders)
+        {
+            tempcol.brakeTorque = Mathf.Infinity;
+        }
+
+        //Assigns random start point (around the beggining of the road) for agent with random rotation
+        transform.localPosition = ((m_roadGen.vertices[4] + m_roadGen.vertices[5] + m_roadGen.vertices[6] + m_roadGen.vertices[7]) / 4f);
+        transform.localRotation = Quaternion.LookRotation((((m_nextCheckpoint.localPosition) - new Vector3(0, m_roadGen.roadOffset, 0)) - transform.localPosition).normalized, Vector3.up);
+        transform.localPosition += new Vector3(0, 0.8f, 0);
+        transform.localPosition += transform.right * UnityEngine.Random.Range((-m_roadGen.roadOffset + 2f), (m_roadGen.roadOffset - 2f));
+        transform.Rotate(new Vector3(0f, UnityEngine.Random.Range(-80f, 80f), 0f));
+
+        //Assigns starting checkpoint
+        m_checkpointPos = (new Vector3(m_nextCheckpoint.localPosition.x, transform.localPosition.y, m_nextCheckpoint.localPosition.z));
+        //m_prevCheckpointPos = transform.localPosition;
+
+        //Assigns target position
+        target.transform.localPosition = ((m_roadGen.vertices[m_roadGen.vertices.Count - 1] + m_roadGen.vertices[m_roadGen.vertices.Count - 2] + m_roadGen.vertices[m_roadGen.vertices.Count - 3] + m_roadGen.vertices[m_roadGen.vertices.Count - 4]) / 4f);
+        target.transform.localPosition += new Vector3(0, 0.5f, 0);
+    }
+
+    
     private void OnCollisionStay(Collision collision)
     {
         //Adds negative reward if agent tries to move by pushing the obstacle
         if (collision.collider.CompareTag("Obstacle"))
         {
-            m_cuurentReward += -0.3f;
-            AddReward(-0.3f);
+            m_currentReward += -0.1f;
+            AddReward(-0.1f);
         }
+        
     }
 
     /// <summary>
@@ -158,15 +187,13 @@ public class CarAgent : Agent
     {
         if (other.collider.CompareTag("Obstacle"))
         {
-            m_cuurentReward += -2 * (m_obstacleHit + 1);
+            m_currentReward += -2 * (m_obstacleHit + 1);
             AddReward(-2 * (m_obstacleHit+1));
+            m_obstacleHit++;
         }
-        if (other.collider.CompareTag("DeadZone"))
-        {
-            NextEpisode(-2f);
-        }
+        
     }
-
+   
     private void NextEpisode(float _reward)
     {
         AddReward(_reward);
@@ -180,106 +207,93 @@ public class CarAgent : Agent
     {
         if (other.CompareTag("Finish"))
         {
-            m_cuurentReward += 5f + ((200f * m_nextcheckpointnumber) / Mathf.Clamp(m_steps, 1, Mathf.Infinity));
-            AddReward(5f + ((200f * m_nextcheckpointnumber) / Mathf.Clamp(m_steps,1,Mathf.Infinity)));
-            EndEpisode();
-           
+            if (m_roadGen.waypoints.Count < m_nextCheckpointNumber)
+            {
+                m_currentReward += 5f + ((200f * m_nextCheckpointNumber) / Mathf.Clamp(m_steps, 1, Mathf.Infinity));
+                AddReward(5f + ((200f * m_nextCheckpointNumber) / Mathf.Clamp(m_steps, 1, Mathf.Infinity)));
+                EndEpisode();
+            }
+            // If agent reaches the final target without clearing the previous checkpoints
+            else
+            {
+                NextEpisode(-5f);
+            }
         }
         else if(other.CompareTag("Waypoint"))
         {
             //If agent collided with the right checkpoint
-            if (other.gameObject.transform == m_nextcheckpoint)
+            if (other.gameObject.transform == m_nextCheckpoint)
             {
                 //Debug.Log("Good Checkpoint " + m_nextcheckpointnumber);
-                m_cuurentReward += (1f + ((50f * m_nextcheckpointnumber) / Mathf.Clamp(m_steps, 1, Mathf.Infinity)));
-                AddReward(1f + ((50f* m_nextcheckpointnumber) / Mathf.Clamp(m_steps, 1, Mathf.Infinity)));
+                m_currentReward += (1.5f + ((50f * m_nextCheckpointNumber) / Mathf.Clamp(m_steps, 1, Mathf.Infinity)) +((m_obstacleGen.obstaclesBeforeWaypoint[m_nextCheckpointNumber - 1] - (m_obstacleHit-m_prevObstacleHit))*0.5f));
+                AddReward(1.5f + ((50f* m_nextCheckpointNumber) / Mathf.Clamp(m_steps, 1, Mathf.Infinity)) + ((m_obstacleGen.obstaclesBeforeWaypoint[m_nextCheckpointNumber - 1] - (m_obstacleHit - m_prevObstacleHit)) * 0.5f));
+                m_prevObstacleHit = m_obstacleHit;
                 NewCheckpoint();
             }
             //If agent collided with wrong checkpoint
             else
             {
-                m_cuurentReward += (-1f);
+                m_currentReward += (-1f);
                 AddReward(-1f );
                //Debug.Log("Bad Checkpoint");
             }
+        }
+        //Colliding with outermost boundary
+        else if(other.CompareTag("Respawn"))
+        {
+            
+            NextEpisode(-1f);
         }
     }
 
     private void NewCheckpoint()
     {
-        m_prevcheckpointpos = m_checkpointpos;
+        //m_prevCheckpointPos = m_checkpointPos;
+
         //If there are more checkpoints to be crossed then assign the incoming checkpoint
-        if (m_roadgen.waypoints.Count > m_nextcheckpointnumber)
+        if (m_roadGen.waypoints.Count > m_nextCheckpointNumber)
         {
-            m_nextcheckpoint = m_roadgen.waypoints[m_nextcheckpointnumber];
-            m_checkpointpos = (new Vector3(m_nextcheckpoint.localPosition.x, transform.localPosition.y, m_nextcheckpoint.localPosition.z));
-            m_nextcheckpointnumber++;
-            m_distancetotarget = Vector3.Distance(m_checkpointpos, transform.localPosition);
-            m_prevdistancetotarget = m_distancetotarget;
+            m_nextCheckpoint = m_roadGen.waypoints[m_nextCheckpointNumber];
+            m_checkpointPos = (new Vector3(m_nextCheckpoint.localPosition.x, transform.localPosition.y, m_nextCheckpoint.localPosition.z));
+            m_nextCheckpointNumber++;
+            m_distanceToTarget = Vector3.Distance(m_checkpointPos, transform.localPosition);
+            m_prevDistanceToTarget = m_distanceToTarget;
         }
         //If there are no checkpoints left then assign the final target
         else
         {
-            m_nextcheckpoint = target.transform;
-            m_checkpointpos = (new Vector3(m_nextcheckpoint.localPosition.x, transform.localPosition.y, m_nextcheckpoint.localPosition.z));
-            m_nextcheckpointnumber += 10;
-            m_distancetotarget = Vector3.Distance(m_checkpointpos, transform.localPosition);
-            m_prevdistancetotarget = m_distancetotarget;
+            m_nextCheckpoint = target.transform;
+            m_checkpointPos = (new Vector3(m_nextCheckpoint.localPosition.x, transform.localPosition.y, m_nextCheckpoint.localPosition.z));
+            m_nextCheckpointNumber += 10;
+            m_distanceToTarget = Vector3.Distance(m_checkpointPos, transform.localPosition);
+            m_prevDistanceToTarget = m_distanceToTarget;
         }
-    }
-    private void Update()
-    {
-      /*
-        Debug.Log("Distance to target = " + m_distancetotarget);
-        Debug.Log("All grounded = " + m_allgrounded);
-        Debug.Log("Local Rotation  = " + transform.localRotation);
-      */
-
-        Debug.Log("Current Reward = " + m_cuurentReward);
-        Debug.Log("Obstacle Hit = " + m_obstacleHit);
-        Debug.Log("Lane Offset = " + m_laneOffset);
-
-        //Line showing direction to incoming checking
-        Debug.DrawLine(transform.position, transform.position + m_dirToTarget * 10f, Color.red);
-        //Line showing agent's forward direction
-        Debug.DrawLine(transform.position, transform.position + 10f * transform.forward, Color.blue);
-    }
-    private void FixedUpdate()
-    {
-        m_steps++;
-        m_allgrounded = true;
-        CalcLaneOffset();
-        CheckGrounded();
-        CheckMovement();
     }
 
     private void CheckMovement()
     {
         CheckDistanceFromCheckpoint();
-        if (m_allgrounded && m_carrigidbody.velocity.magnitude > 3f)
+        if ( m_carRigidbody.velocity.magnitude > 3f)
         {
-
             //Reward based on how far the agent is from the middle of road
-            m_cuurentReward += (1 / (800f * m_laneOffset * m_laneOffset * m_laneOffset));
-            AddReward(1 / (800f * m_laneOffset * m_laneOffset * m_laneOffset));
+            //m_currentReward += (1f / (3000f * m_laneOffset * m_laneOffset * m_laneOffset));
+            //AddReward(1f / (3000f * m_laneOffset * m_laneOffset * m_laneOffset));
       
             //Reward based on the direction of movement and speed of agent
-            m_cuurentReward += (0.0005f * ((Vector3.Dot(m_carrigidbody.velocity.normalized, transform.forward) / 2f) + 0.5f));
-            AddReward((0.0005f * ((Vector3.Dot(m_carrigidbody.velocity.normalized, transform.forward) / 2f) + 0.5f)));
-
+            m_currentReward += (0.0005f * ((Vector3.Dot(m_carRigidbody.velocity.normalized, transform.forward) / 2f) + 0.5f));
+            AddReward((0.0005f * ((Vector3.Dot(m_carRigidbody.velocity.normalized, transform.forward) / 2f) + 0.5f)));
         }
-
 
       //If agent's speed is too low and its off the track for a certain amount of time then end the episode
-        if (m_carrigidbody.velocity.magnitude < 1f && !m_allgrounded)
+        if (m_carRigidbody.velocity.magnitude < 1f || !m_allGrounded)
         {
-                m_deadcounter++;
+                m_deadCounter++;
         }
-        if (m_carrigidbody.velocity.magnitude > 1f && m_allgrounded)
+        if (m_carRigidbody.velocity.magnitude > 1f && m_allGrounded)
         { 
-            m_deadcounter = 0;
+            m_deadCounter = 0;
         }
-        if (m_deadcounter >= 500)
+        if (m_deadCounter >= 500)
         {
             NextEpisode(-2f);
         }
@@ -291,41 +305,84 @@ public class CarAgent : Agent
     /// </summary>
     private void CheckDistanceFromCheckpoint()
     {
-        m_distancetotarget = Vector3.Distance(m_checkpointpos, transform.localPosition);
+        m_distanceToTarget = Vector3.Distance(m_checkpointPos, transform.localPosition);
+        // Gives reward every 50th step
         if (m_steps % 50 == 0)
         {
-            m_cuurentReward += (m_prevdistancetotarget - m_distancetotarget) / 40f;
-            AddReward((m_prevdistancetotarget - m_distancetotarget) / 40f);
-            m_prevdistancetotarget = m_distancetotarget;
+            m_currentReward += (m_prevDistanceToTarget - m_distanceToTarget) / 50f;
+            //Debug.Log("Distance reward = " + (m_prevDistanceToTarget - m_distanceToTarget) / 50f);
+            AddReward((m_prevDistanceToTarget - m_distanceToTarget) / 50f);
+            m_prevDistanceToTarget = m_distanceToTarget;
         }
     }
 
     /// <summary>
-    /// Checks if all wheel colliders are grounded
+    /// Checks if all wheel colliders are grounded and if all wheels are touching the road or not
     /// </summary>
     private void CheckGrounded()
     {
-        foreach (WheelCollider tempcol in m_wheelcols)
+        foreach (WheelCollider tempcol in m_wheelColliders)
         {
             if (!tempcol.isGrounded)
             {
-                m_allgrounded = false;
+                m_allGrounded = false;
                 break;
             }
+            else
+            {
+                tempcol.GetGroundHit(out m_out);
+                if (m_out.collider.CompareTag("DeadZone"))
+                {
+                    NextEpisode(-5f);
+                    //m_currentReward += -0.5f;
+                    //AddReward(-0.5f);
+           
+                    break;
+                }
+            }
         }
+    }
+    private void FixedUpdate()
+    {
+        m_steps++;
+        m_allGrounded = true;
+
+        //CalcLaneOffset();
+
+        CheckGrounded();
+        CheckMovement();
     }
 
     /// <summary>
     /// Calculates the shortest distance of agent from the line connecting previous checkpoint to next checkpoint
     /// </summary>
-    private void CalcLaneOffset()
+    //private void CalcLaneOffset()
+    //{
+    //    m_prevToNextCheckpoint = m_checkpointPos - m_prevCheckpointPos;
+    //    m_prevToNextCheckpoint = Vector3.ProjectOnPlane(m_prevToNextCheckpoint, Vector3.up);
+    //    m_prevToCar = transform.localPosition - m_prevCheckpointPos;
+    //    m_prevToCar = Vector3.ProjectOnPlane(m_prevToCar, Vector3.up);
+    //    m_closestPoint = Vector3.Project(m_prevToCar, m_prevToNextCheckpoint);
+    //    m_closestPoint = m_prevCheckpointPos + m_closestPoint;
+    //    m_laneOffset = Mathf.Clamp(Vector3.Distance(new Vector3(transform.localPosition.x, 0, transform.localPosition.z), m_closestPoint), 0.4f, 10f);
+    //}
+
+    private void Update()
     {
-        m_prevtonextcheckpoint = m_checkpointpos - m_prevcheckpointpos;
-        m_prevtonextcheckpoint = Vector3.ProjectOnPlane(m_prevtonextcheckpoint, Vector3.up);
-        m_prevtocar = transform.localPosition - m_prevcheckpointpos;
-        m_prevtocar = Vector3.ProjectOnPlane(m_prevtocar, Vector3.up);
-        m_closestpoint = Vector3.Project(m_prevtocar, m_prevtonextcheckpoint);
-        m_closestpoint = m_prevcheckpointpos + m_closestpoint;
-        m_laneOffset = Mathf.Clamp(Vector3.Distance(new Vector3(transform.localPosition.x, 0, transform.localPosition.z), m_closestpoint), 0.2f, 10f);
+        //Debug.Log("Local position  = " + transform.localPosition);
+        //Debug.Log("Obstacle hit = " + m_obstacleHit);
+        //Debug.Log("Lane offset = " + m_laneOffset);
+        //Debug.Log("Angular velocity = " + transform.InverseTransformDirection(m_carRigidbody.angularVelocity));
+        //m_dirToTarget = (m_checkpointPos - transform.localPosition).normalized;
+        //Debug.Log("Dot product (agent forward,dirToTarget) = "+Vector3.Dot(transform.forward, m_dirToTarget)); //float
+        //Debug.Log("Velocity = " + transform.InverseTransformDirection(m_carRigidbody.velocity));
+
+        //Physics.Raycast(transform.position + (transform.forward * (1.97f)), Vector3.down, out m_rayout, 10f);
+        //Debug.Log("Raycast hit = " + m_rayout.collider.tag);
+
+        //Line showing direction to incoming checking
+        //Debug.DrawLine(transform.position, transform.position + m_dirToTarget * 10f, Color.red);
+        //Line showing agent's forward direction
+        //Debug.DrawLine(transform.position, transform.position + 10f * transform.forward, Color.blue);
     }
 }

@@ -1,30 +1,37 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
+﻿
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 public class CarController : MonoBehaviour
 {
+	/// <summary>
+	/// public variables
+	/// </summary>
+
 	public float downForceValue = 50;
-	public WheelCollider frontLeft, frontRight;
-	public WheelCollider backLeft, backRight;
-	public Transform frontLeftT, frontRightT;
-	public Transform backLeftT, backRightT;
 	public float maxSteerAngle = 35f;
 	public float turnSensitivity = 1.0f;
 	public float motorForce = 500f;
 	public float brakeForce = 100f;
+	public Transform frontLeftT, frontRightT;
+	public Transform backLeftT, backRightT;
 	public Vector3 centerOfMass = new Vector3(0.0f, -0.05f, 0.0f);
+	public WheelCollider frontLeft, frontRight;
+	public WheelCollider backLeft, backRight;
+
+
+	/// <summary>
+	/// private variables
+	/// </summary>
 
 	[SerializeField] private Vector2 movement = new Vector2(0f, 0f);
 
 	private float m_turnRadius;
 	private float m_curSpeed;
-	private float m_brake;
 	private float m_torque = 0.0f;
-	private Rigidbody m_rigidbody;
 	private float m_wheelBase , m_axleLength;
+	private Rigidbody m_rigidbody;
+
 	void Start()
     {
 		m_rigidbody = GetComponent<Rigidbody>();
@@ -44,8 +51,10 @@ public class CarController : MonoBehaviour
 		movement = _move;
     }
 
-	//Ackerman Steering
-    private void Steer()
+	/// <summary>
+	/// Ackerman steering
+	/// </summary>
+	private void Steer()
 	{
 		m_turnRadius = maxSteerAngle * movement.x * turnSensitivity;
 		m_turnRadius = m_axleLength / Mathf.Tan(m_turnRadius * Mathf.Deg2Rad);
@@ -68,9 +77,9 @@ public class CarController : MonoBehaviour
 
 	private void Accelerate()
 	{
-		m_curSpeed = m_rigidbody.velocity.magnitude ;
-		Debug.Log("Current speed = " + m_curSpeed);
-		if (m_curSpeed< 30f)
+		m_curSpeed = m_rigidbody.velocity.magnitude;
+		//Debug.Log("Current speed = " + m_curSpeed);
+		if (m_curSpeed < 30f)
 		{
 				backLeft.brakeTorque = 0;
 				backRight.brakeTorque = 0;
@@ -84,6 +93,7 @@ public class CarController : MonoBehaviour
 			
 
 		}
+		//if speed exceeds 30 apply brake
 		else
 		{
 			backLeft.brakeTorque = brakeForce;
