@@ -13,18 +13,15 @@ public class RoadGenerator : MonoBehaviour
     /// <summary>
     /// public variables
     /// </summary>
-
-    
     
     [Range(3, 10)]
-    public float roadOffset;
-    [Range(1, 100)]
-    public float smoothness;
+    public float halfRoadWidth;
 
+    [Header("Apply a boundary around the track or not")]
     public bool isRoadBoundary = false;
+
     public List<Vector3> vertices = new List<Vector3>();
     public List<Transform> waypoints = new List<Transform>();
-    
     public Transform waypointParent;
 
 
@@ -33,26 +30,16 @@ public class RoadGenerator : MonoBehaviour
     /// </summary>
 
     private CurveHandler m_curves;
-    private GameObject m_waypoint;
-    private GameObject m_roadBoundary;
-    private List<int> m_triangles = new List<int>();
-    private List<int> m_boundaryTriangles1 = new List<int>();
-    private List<int> m_boundaryTriangles2 = new List<int>();
-    
-    private List<Vector3> m_normals = new List<Vector3>();
-    private List<Vector3> m_boundaryVertices1 = new List<Vector3>();
-    private List<Vector3> m_boundaryVertices2 = new List<Vector3>();
     private MeshCollider[] m_meshCollider = new MeshCollider[3];
     private MeshFilter[] m_mesh = new MeshFilter[3];
     private ObstacleGenerator m_obstacle;
-    private List<Vector2> m_leftSpline = new List<Vector2>();
-    private List<Vector2> m_rightSpline = new List<Vector2>();
+   
     void Start()
     {
         m_curves = transform.GetComponent<CurveHandler>();
         if(isRoadBoundary)
         {
-            m_roadBoundary = new GameObject("Road Boundary");
+            GameObject m_roadBoundary = new GameObject("Road Boundary");
             m_roadBoundary.AddComponent<MeshCollider>();
             m_roadBoundary.AddComponent<MeshFilter>();
             m_roadBoundary.tag = "Obstacle";
@@ -71,16 +58,15 @@ public class RoadGenerator : MonoBehaviour
         //GenTrack();
     }
 
-
     /// <summary>
     /// Generate the road
     /// </summary>
     public void GenTrack()
     {
-        //Clear all variables every time a new road is made
+        // Clear all variables every time a new road is made
         ResetVariables();
 
-        //Generate catmull rom spline from the convexhull points
+        // Generate catmull rom spline from the convexhull points
         m_curves.GenerateSpline();
        
         GenMesh();
@@ -104,17 +90,8 @@ public class RoadGenerator : MonoBehaviour
             m_mesh[1].mesh.Clear();
             m_mesh[2].mesh.Clear();
         }
-      
-        
         vertices.Clear();
-        m_boundaryVertices1.Clear();
-        m_boundaryVertices2.Clear();
-        m_triangles.Clear();
-        m_boundaryTriangles1.Clear();
-        m_boundaryTriangles2.Clear();
-        m_normals.Clear();
         waypoints.Clear();
-       
         m_obstacle.waypointOnSpline.Clear();
 
         foreach (Transform child in waypointParent)
@@ -126,29 +103,29 @@ public class RoadGenerator : MonoBehaviour
     /// </summary>
     private void GenWaypoints()
     {
-        //Creating the gameobject to instantiate on road
-        m_waypoint = new GameObject("Waypoint");
-        m_waypoint.layer = 10;
-        m_waypoint.tag = "Waypoint";
-        m_waypoint.AddComponent<BoxCollider>();
-        m_waypoint.isStatic = true;
-        BoxCollider _waypointcol = m_waypoint.GetComponent<BoxCollider>();
-        _waypointcol.size = new Vector3(roadOffset,2* roadOffset,0.1f);
+        // Creating the gameobject to instantiate on road
+        GameObject _waypoint = new GameObject("Waypoint");
+        _waypoint.layer = 10;
+        _waypoint.tag = "Waypoint";
+        _waypoint.AddComponent<BoxCollider>();
+        _waypoint.isStatic = true;
+        BoxCollider _waypointcol = _waypoint.GetComponent<BoxCollider>();
+        _waypointcol.size = new Vector3(halfRoadWidth,2* halfRoadWidth,0.1f);
         _waypointcol.isTrigger = true;
         
-        //Instantiating the checkpoints along the road with proper rotation
+        // Instantiating the checkpoints along the road with proper rotation
         Vector3 _vec1, _vec2;
         for(int i=8;i< m_curves.m_splinePoints.Count - 5;i+=7)
         {
             _vec1 = new Vector3(m_curves.m_splinePoints[i + 1].x, 0f, m_curves.m_splinePoints[i + 1].y);
             _vec2 = new Vector3(m_curves.m_splinePoints[i-1].x, 0f, m_curves.m_splinePoints[i-1].y);
             Quaternion _rot = Quaternion.LookRotation((_vec1 - _vec2).normalized, Vector3.up);
-            waypoints.Add(Instantiate(m_waypoint, (new Vector3(m_curves.m_splinePoints[i].x, roadOffset, m_curves.m_splinePoints[i].y)), _rot, waypointParent).transform);
+            waypoints.Add(Instantiate(_waypoint, (new Vector3(m_curves.m_splinePoints[i].x, halfRoadWidth, m_curves.m_splinePoints[i].y)), _rot, waypointParent).transform);
 
             m_obstacle.waypointOnSpline.Add(i);
         }
 
-        GameObject.Destroy(m_waypoint);
+        GameObject.Destroy(_waypoint);
     }
 
     /// <summary>
@@ -156,111 +133,81 @@ public class RoadGenerator : MonoBehaviour
     /// </summary>
     private void GenMesh()
     {
-        //Assigning vertices and normals
+        List<int> _boundaryTriangles1 = new List<int>();
+        List<int> _boundaryTriangles2 = new List<int>();
+        List<Vector3> _normals = new List<Vector3>();
+        List<Vector3> _boundaryVertices1 = new List<Vector3>();
+        List<Vector3> _boundaryVertices2 = new List<Vector3>();
+        List<int> _triangles = new List<int>();
+
+        // Assigning vertices and normals
         for (int i = 0; i < m_curves.m_splinePoints.Count - 1; i++)
         {
+            // Calculating normal to the direction of road
             Vector2 _vec2 = (m_curves.m_splinePoints[i + 1] - m_curves.m_splinePoints[i]).normalized;
             Vector3 _vec2tovec3 = new Vector3(-_vec2.y, 0f, _vec2.x);
            
             Vector3 _newvec3 = transform.InverseTransformPoint(new Vector3(m_curves.m_splinePoints[i].x, 0f, m_curves.m_splinePoints[i].y));
-            vertices.Add(_newvec3 + (_vec2tovec3 * roadOffset));
-            m_normals.Add(Vector3.up);
-            vertices.Add(_newvec3 + (-_vec2tovec3 * roadOffset));
-            m_normals.Add(Vector3.up);
+            vertices.Add(_newvec3 + (_vec2tovec3 * halfRoadWidth));
+            _normals.Add(Vector3.up);
+            vertices.Add(_newvec3 + (-_vec2tovec3 * halfRoadWidth));
+            _normals.Add(Vector3.up);
 
             if(isRoadBoundary)
             {
-                m_boundaryVertices1.Add(_newvec3 + (_vec2tovec3 * roadOffset));
-                m_boundaryVertices1.Add((_newvec3 + (_vec2tovec3 * roadOffset)) + Vector3.up * 10f);
-                m_boundaryVertices2.Add(_newvec3 + (_vec2tovec3 * roadOffset));
-                m_boundaryVertices2.Add((_newvec3 + (_vec2tovec3 * roadOffset)) + Vector3.up * 10f);
+                _boundaryVertices1.Add(_newvec3 + (_vec2tovec3 * halfRoadWidth));
+                _boundaryVertices1.Add((_newvec3 + (_vec2tovec3 * halfRoadWidth)) + Vector3.up * 10f);
+                _boundaryVertices2.Add(_newvec3 + (_vec2tovec3 * halfRoadWidth));
+                _boundaryVertices2.Add((_newvec3 + (_vec2tovec3 * halfRoadWidth)) + Vector3.up * 10f);
             }
         }
-        //Assigning triangle indices
+
+        // Assigning triangle indices
         for (int i = 0; i < vertices.Count - 2; i += 2)
         {
-            m_triangles.Add(i);
-            m_triangles.Add(i + 2);
-            m_triangles.Add(i + 3);
-            m_triangles.Add(i);
-            m_triangles.Add(i + 3);
-            m_triangles.Add(i + 1);
+            _triangles.Add(i);
+            _triangles.Add(i + 2);
+            _triangles.Add(i + 3);
+            _triangles.Add(i);
+            _triangles.Add(i + 3);
+            _triangles.Add(i + 1);
             if (isRoadBoundary)
             {
-                m_boundaryTriangles1.Add(i);
-                m_boundaryTriangles1.Add(i + 3);
-                m_boundaryTriangles1.Add(i + 2);
-                m_boundaryTriangles1.Add(i);
-                m_boundaryTriangles1.Add(i + 1);
-                m_boundaryTriangles1.Add(i + 3);
-                m_boundaryTriangles2.Add(i);
-                m_boundaryTriangles2.Add(i + 2);
-                m_boundaryTriangles2.Add(i + 3);
-                m_boundaryTriangles2.Add(i);
-                m_boundaryTriangles2.Add(i + 3);
-                m_boundaryTriangles2.Add(i + 1);
+                _boundaryTriangles1.Add(i);
+                _boundaryTriangles1.Add(i + 3);
+                _boundaryTriangles1.Add(i + 2);
+                _boundaryTriangles1.Add(i);
+                _boundaryTriangles1.Add(i + 1);
+                _boundaryTriangles1.Add(i + 3);
+                _boundaryTriangles2.Add(i);
+                _boundaryTriangles2.Add(i + 2);
+                _boundaryTriangles2.Add(i + 3);
+                _boundaryTriangles2.Add(i);
+                _boundaryTriangles2.Add(i + 3);
+                _boundaryTriangles2.Add(i + 1);
             }
         }
         
-        //Setting the values for the mesh
+        // Setting the values for the mesh
         m_mesh[0].mesh.SetVertices(vertices);
-        m_mesh[0].mesh.SetTriangles(m_triangles, 0);
-        m_mesh[0].mesh.SetNormals(m_normals);
+        m_mesh[0].mesh.SetTriangles(_triangles, 0);
+        m_mesh[0].mesh.SetNormals(_normals);
         m_mesh[0].mesh.Optimize();
 
-        //Use the generated mesh as mesh collider too
+        // Use the generated mesh as mesh collider too
         m_meshCollider[0].sharedMesh = m_mesh[0].mesh;
 
         if (isRoadBoundary)
         {
-            m_mesh[1].mesh.SetVertices(m_boundaryVertices1);
-            m_mesh[1].mesh.SetTriangles(m_boundaryTriangles1, 0);
-            m_mesh[2].mesh.SetVertices(m_boundaryVertices2);
-            m_mesh[2].mesh.SetTriangles(m_boundaryTriangles2, 0);
+            m_mesh[1].mesh.SetVertices(_boundaryVertices1);
+            m_mesh[1].mesh.SetTriangles(_boundaryTriangles1, 0);
+            m_mesh[2].mesh.SetVertices(_boundaryVertices2);
+            m_mesh[2].mesh.SetTriangles(_boundaryTriangles2, 0);
             m_meshCollider[1].sharedMesh = m_mesh[1].mesh;
             m_meshCollider[2].sharedMesh = m_mesh[2].mesh;
         }
     }
 
-    
-
-    /// <summary>
-    /// Extra function for smoothing the points
-    /// </summary>
-    private List<Vector2> MakeSmoothCurve(List<Vector2> _arrayToCurve)
-    {
-        List<Vector2> _points;
-        List<Vector2> _curvedPoints;
-        int _pointsLength = 0;
-        int _curvedLength = 0;
-
-        if (smoothness < 1.0f) smoothness = 1.0f;
-
-        _pointsLength = _arrayToCurve.Count;
-
-        _curvedLength = (_pointsLength* Mathf.RoundToInt(smoothness)) - 1;
-        _curvedPoints = new List<Vector2>(_curvedLength);
-
-        float _temp;
-        for (int pointInTimeOnCurve = 0; pointInTimeOnCurve < _curvedLength + 1; pointInTimeOnCurve++)
-        {
-            _temp = Mathf.InverseLerp(0, _curvedLength, pointInTimeOnCurve);
-
-            _points = new List<Vector2>(_arrayToCurve);
-
-            for (int j = _pointsLength - 1; j > 0; j--)
-            {
-                for (int i = 0; i < j; i++)
-                {
-                    _points[i] = (1 - _temp) * _points[i] + _temp * _points[i + 1];
-                }
-            }
-
-            _curvedPoints.Add(_points[0]);
-        }
-
-        return _curvedPoints;
-    }
     private void Update()
     {
         foreach (var i in waypoints)

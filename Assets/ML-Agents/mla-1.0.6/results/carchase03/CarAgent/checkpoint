@@ -1,6 +1,0 @@
-model_checkpoint_path: "CarAgent-1003140.ckpt"
-all_model_checkpoint_paths: "CarAgent-399919.ckpt"
-all_model_checkpoint_paths: "CarAgent-599660.ckpt"
-all_model_checkpoint_paths: "CarAgent-799499.ckpt"
-all_model_checkpoint_paths: "CarAgent-999539.ckpt"
-all_model_checkpoint_paths: "CarAgent-1003140.ckpt"

@@ -8,25 +8,31 @@ public class CurveHandler : MonoBehaviour
     /// public variables
     /// </summary>
 
+    [Header("The lower the value the more dense the mesh")]
+    [Range(0.01f, 10f)] public float detailLevel;
 
+    [Header("The higher the value the more difficult the track")]
+    [Range(0.05f, 50f)] public float difficulty;
+
+    [Header("Number of random points to be generated", order = 0)]
+    [Space(-10, order = 1)]
+    [Header("for the procedural track", order = 2)]
+    [Range(3, 100)] public int pointDensity;
+
+    [Header("X = min x local coordinate, Y = min y local coordinate", order = 0)]
+    [Space(-10, order = 1)]
+    [Header("Width = max x local coordinate, Height = max y local coordinate", order = 2)]
     public Rect roadBounds;
-    [Range(0.01f, 10f)]
-    public float detailLevel;
-    [Range(0.01f, 10f)]
-    public float spacing;
-    [Range(3, 100)]
-    public int pointDensity;
+
     public List<Vector2> m_splinePoints = new List<Vector2>();
-    
-    public List<Vector3> splineNormal = new List<Vector3>();
    
+
     /// <summary>
     /// private variables
     /// </summary>
-    [SerializeField]
-    private List<Vector2> m_convexhull = new List<Vector2>();
-    [SerializeField]
-    private List<Vector2> m_randPoints = new List<Vector2>();
+
+    [SerializeField] private List<Vector2> m_convexhull = new List<Vector2>();
+    [SerializeField] private List<Vector2> m_randPoints = new List<Vector2>();
   
     /// <summary>
     /// Sorts in clockwise order around m_origin point
@@ -92,7 +98,7 @@ public class CurveHandler : MonoBehaviour
         // Recursively find convex hull points on one side of line joining _points[_minX] and _points[_maxX] 
         QuickHull(_points, _size, _points[_minX], _points[_maxX], 1);
 
-        // Recursively find convex hull _points on other _side of line joining _points[_minX] and _points[_maxX] 
+        // Recursively find convex hull points on other side of line joining _points[_minX] and _points[_maxX] 
         QuickHull(_points, _size, _points[_minX], _points[_maxX], -1);
     }
 
@@ -107,16 +113,15 @@ public class CurveHandler : MonoBehaviour
         return 0;
     }
 
-
     /// <summary>
-    /// Returns points value proportional to the distance between the point _pointMaxDist and the line joining the points _point1 and _point2
+    /// Returns points value proportional to the distance between the point _pointMaxDist
+    /// and the line joining the points _point1 and _point2
     /// </summary>
     private int LineDistance(Vector2 _point1, Vector2 _point2, Vector2 _pointMaxDist)
     {
         return (int)((_pointMaxDist.y - _point1.y) * (_point2.x - _point1.x) -
                    (_point2.y - _point1.y) * (_pointMaxDist.x - _point1.x));
     }
-
 
     private void QuickHull(List<Vector2> _points, int _size, Vector2 _point1, Vector2 _point2, int _side)
     {
@@ -146,214 +151,223 @@ public class CurveHandler : MonoBehaviour
         QuickHull(_points, _size, _points[_index], _point1, -FindSide(_points[_index], _point1, _point2));
         QuickHull(_points, _size, _points[_index], _point2, -FindSide(_points[_index], _point2, _point1));
     }
+
     private void GenPoints()
     {
-        //Generating random points within a given area
+        // Generates random points within a given area
         for (int i = 0; i < pointDensity; i++)
         {
-            float _rand1 = UnityEngine.Random.Range(-250f, 250f);
-            float _rand2 = UnityEngine.Random.Range(-250f, 250f);
+            float _rand1 = UnityEngine.Random.Range(roadBounds.x, roadBounds.width);
+            float _rand2 = UnityEngine.Random.Range(roadBounds.y, roadBounds.height);
             m_randPoints.Add(new Vector2(_rand1, _rand2));
         }
     }
+
     public void GenerateSpline()
     {
         m_convexhull.Clear();
         m_randPoints.Clear();
-        //Generate random points
+
+        // Generate random points
         GenPoints();
 
-        //Get convexhull of the random points
+        // Get convexhull of the random points
         CreateConvexhull(m_randPoints, m_randPoints.Count);
 
-        //Sort the convexhull in clockwise order
+        // Sort the convexhull in clockwise order
         m_convexhull.Sort((new CurveHandler.ClockwiseComparer(new Vector2(0f, 0f))));
 
-        // Clear spline and normals from previous episode if any
+        // Clear spline from previous episode if any
         m_splinePoints.Clear();
-        splineNormal.Clear();
-        for (int i = 0; i < 4; i++)
-        {
-            EqualizeDistance();
-        }
 
-        DisplacePoints();
-        for (int i = 0; i < 10; i++)
-        {
-            FixAngles();
-            EqualizeDistance();
-        }
-        //Sort the convexhull in clockwise order
-        m_convexhull.Sort((new CurveHandler.ClockwiseComparer(new Vector2(0f, 0f))));
-        for (int i = 0; i < m_convexhull.Count; i++)
-        {
-            m_convexhull[i] += new Vector2(transform.position.x, transform.position.z);
-        }
-        Vector2 previousPoint = m_convexhull[1];
-        float dstSinceLastEvenPoint = 0;
+        GenerateTrackVariation();
+        EvenlySpacedSpline();
+    }
+
+    private void EvenlySpacedSpline()
+    {
+        Vector2 _previousPoint = m_convexhull[1];
+        float _dstSinceLastEvenPoint = 0;
         Vector2[] _segment = new Vector2[4];
+
         for (int pos = 1; pos < m_convexhull.Count - 3; pos++)
         {
-
             _segment[0] = m_convexhull[pos];
             _segment[1] = m_convexhull[pos + 1];
             _segment[2] = m_convexhull[pos + 2];
             _segment[3] = m_convexhull[pos + 3];
 
+            float _netLenControl = Vector2.Distance(_segment[0], _segment[1]) + Vector2.Distance(_segment[1], _segment[2]) + Vector2.Distance(_segment[2], _segment[3]);
+            float _estimatedCurveLength = Vector2.Distance(_segment[0], _segment[3]) + _netLenControl / 2f;
+            int _divisions = Mathf.CeilToInt(_estimatedCurveLength * 10);
+            float _t = 0;
 
-            float controlNetLength = Vector2.Distance(_segment[0], _segment[1]) + Vector2.Distance(_segment[1], _segment[2]) + Vector2.Distance(_segment[2], _segment[3]);
-            float estimatedCurveLength = Vector2.Distance(_segment[0], _segment[3]) + controlNetLength / 2f;
-            int divisions = Mathf.CeilToInt(estimatedCurveLength * detailLevel * 10);
-            float t = 0;
-            while (t <= 1)
+            while (_t <= 1)
             {
-                t += 1f / divisions;
+                // Calculate spline position
+                _t += 1f / _divisions;
+                Vector2 _pointOnSpline = GetCatmullRomPosition(_t, _segment);
+                _dstSinceLastEvenPoint += Vector2.Distance(_previousPoint, _pointOnSpline);
 
-
-                Vector2 newPos = GetCatmullRomPosition(t, _segment);
-
-                dstSinceLastEvenPoint += Vector2.Distance(previousPoint, newPos);
-
-                while (dstSinceLastEvenPoint >= spacing)
+                // Check if the point on the spline is evenly spaces
+                // If not then move the point towards the previous point and add it to m_splinePoints
+                // Repeat the above steps till required detail level is achieved
+                while (_dstSinceLastEvenPoint >= detailLevel)
                 {
-                    float overshootDst = dstSinceLastEvenPoint - spacing;
-                    Vector2 newEvenlySpacedPoint = newPos + (previousPoint - newPos).normalized * overshootDst;
-                    m_splinePoints.Add(newEvenlySpacedPoint);
-                    dstSinceLastEvenPoint = overshootDst;
-                    previousPoint = newEvenlySpacedPoint;
+                    float _extraDistance = _dstSinceLastEvenPoint - detailLevel;
+                    Vector2 _newPoint = _pointOnSpline + (_previousPoint - _pointOnSpline).normalized * _extraDistance;
+                    m_splinePoints.Add(_newPoint);
+                    _dstSinceLastEvenPoint = _extraDistance;
+                    _previousPoint = _newPoint;
                 }
 
-                previousPoint = newPos;
+                _previousPoint = _pointOnSpline;
             }
-
-            //int loops = Mathf.FloorToInt(1f / m_detailLevel);
-
-            //for (int i = 1; i <= loops; i++)
-            //{
-
-            //    float t = i * m_detailLevel;
-
-
-            //    Vector3 newPos = GetCatmullRomPosition( t,_segment);
-            //    Vector3 newTangent = GetCatmullRomTangent(t, _segment);
-            //    Vector3 newNormal = GetCatmullRomNormal(newTangent);
-            //    m_splinePoints.Add(new Vector2(newPos.x, newPos.z));
-            //    splineNormal.Add(new Vector3(newNormal.x, 0f, newNormal.z));
-
-
-            //}
         }
-
     }
 
-    private void FixAngles()
+    private void GenerateTrackVariation()
     {
-        for (int i = 0; i < m_convexhull.Count; ++i)
+        // Pushes apart points that are too close
+        for (int i = 0; i < 4; i++)
         {
-            int previous = ((i - 1) < 0) ? m_convexhull.Count - 1 : i - 1;
-            int next = (i + 1) % m_convexhull.Count;
-            float px = m_convexhull[i].x - m_convexhull[previous].x;
-            float py = m_convexhull[i].y - m_convexhull[previous].y;
-            float pl = (float)Mathf.Sqrt(px * px + py * py);
-            px /= pl;
-            py /= pl;
-
-            float nx = m_convexhull[i].x - m_convexhull[next].x;
-            float ny = m_convexhull[i].y - m_convexhull[next].y;
-            nx = -nx;
-            ny = -ny;
-            float nl = (float)Mathf.Sqrt(nx * nx + ny * ny);
-            nx /= nl;
-            ny /= nl;
-            //I got a vector going to the next and to the previous points, normalised.  
-
-            float a = (float)Mathf.Atan2(px * ny - py * nx, px * nx + py * ny); // perp dot product between the previous and next point. 
-
-            if (Mathf.Abs(a * Mathf.Rad2Deg) <= 100) continue;
-
-            float nA = 100 * Mathf.Sign(a) * Mathf.Deg2Rad;
-            float diff = nA - a;
-            float cos = (float)Mathf.Cos(diff);
-            float sin = (float)Mathf.Sin(diff);
-            float newX = nx * cos - ny * sin;
-            float newY = nx * sin + ny * cos;
-            newX *= nl;
-            newY *= nl;
-            m_convexhull[next] = new Vector2(m_convexhull[i].x + newX, m_convexhull[i].y + newY);
+            PushApartPoints();
         }
-    }
 
-    private void DisplacePoints()
-    {
-        Vector2 disp = new Vector2();
-        List<Vector2> rSet = new List<Vector2>();
-        float difficulty = 1f; //the closer the value is to 0, the harder the track should be. Grows exponentially.  
-        float maxDisp = 5f; // Again, this may change to fit your units.  
+        DisplacePoints();
+
+        for (int i = 0; i < 10; i++)
+        {
+            FixAngles();
+
+        }
+
+        // Sort the convexhull in clockwise order
+        m_convexhull.Sort((new CurveHandler.ClockwiseComparer(new Vector2(0f, 0f))));
+
+        // Storing the world positions in m_convexhull
         for (int i = 0; i < m_convexhull.Count; i++)
         {
-            float dispLen = (float)Mathf.Pow(UnityEngine.Random.value, difficulty) * maxDisp;
-            disp = (m_convexhull[(i + 1) % m_convexhull.Count] - m_convexhull[i]).normalized;
-            disp = new Vector2(-disp.y, disp.x);
-            disp = Rotate(disp, UnityEngine.Random.Range(-30f, 30f));
-            
-            disp *= dispLen;
-            rSet.Add(new Vector2(m_convexhull[i].x, m_convexhull[i].y));
-            rSet.Add(new Vector2(m_convexhull[i].x, m_convexhull[i].y));
-            rSet[rSet.Count - 1] += (new Vector2(m_convexhull[(i + 1) % m_convexhull.Count].x, m_convexhull[(i + 1) % m_convexhull.Count].y) / 2f) + new Vector2(UnityEngine.Random.Range(-disp.x,disp.x), UnityEngine.Random.Range(-disp.y, disp.y));
-            //Explaining: a mid point can be found with (m_convexhull[i]+m_convexhull[i+1])/2.  
-            //Then we just add the displacement.  
+            m_convexhull[i] += new Vector2(transform.position.x, transform.position.z);
         }
+    }
+
+    /// <summary>
+    /// If angle formed by 3 points at the middle point is less than 80 then this function increases that angle
+    /// </summary>
+    private void FixAngles()
+    {
+        for (int i = 0; i < m_convexhull.Count; i++)
+        {
+            int _previousPoint = ((i - 1) < 0) ? m_convexhull.Count - 1 : i - 1;
+            int _nextPoint = (i + 1) % m_convexhull.Count;
+
+            // Normalize vectors going to the next and coming from the previous point. 
+            Vector2 _prevVec = m_convexhull[i] - m_convexhull[_previousPoint];
+            float _prevVecLen = _prevVec.magnitude;
+            _prevVec /= _prevVecLen;
+
+            Vector2 _nextVec = m_convexhull[_nextPoint] - m_convexhull[i];
+            float _nextVecLen = _nextVec.magnitude;
+            _nextVec /= _nextVecLen;
+
+            // Only smooth those angles that are less than 60
+            float _angle = Vector2.Angle(_prevVec, _nextVec);
+            if (_angle >= 80f)
+            {
+                continue;
+            }
+
+            // Move the middle point towards the center of the 3 points
+            m_convexhull[i] = Vector2.Lerp(m_convexhull[i], (m_convexhull[_previousPoint] + m_convexhull[i] + m_convexhull[_nextPoint]) / 3f, 0.5f);
+        }
+    }
+
+    /// <summary>
+    /// Displaces the points in a random direction with a random amount
+    /// </summary>
+    private void DisplacePoints()
+    {
+        Vector2 _displacement;
+        List<Vector2> rSet = new List<Vector2>();
+
+        // MaxDisp i.e max displacement can be changed according to one's needs
+        float maxDisp = 5f; 
+        
+        for (int i = 0; i < m_convexhull.Count; i++)
+        {
+            // Max displacement value based on difficulty
+            float dispLen = Mathf.Pow(difficulty, UnityEngine.Random.value) * maxDisp;
+
+            // Selects a random displacement direction close to the perpendicular of the direction of path
+            _displacement = (m_convexhull[(i + 1) % m_convexhull.Count] - m_convexhull[i]).normalized;
+            _displacement = new Vector2(-_displacement.y, _displacement.x);
+            _displacement = Rotate(_displacement, UnityEngine.Random.Range(-20f, 20f));
+            _displacement *= dispLen;
+
+            // Displace to the left or to the right of the track
+            if (UnityEngine.Random.value > 0.5f)
+            {
+                _displacement = -_displacement;
+            }
+
+            rSet.Add(new Vector2(m_convexhull[i].x, m_convexhull[i].y));
+
+            // Add the new displaced point between the 2 existing points
+            rSet.Add((m_convexhull[i]+m_convexhull[(i + 1) % m_convexhull.Count] / 2f) + _displacement);
+        }
+
         m_convexhull = new List<Vector2>(rSet);
     }
 
-    private Vector2 Rotate(Vector2 v, float degrees)
+    /// <summary>
+    /// Function to rotate a vector by given degrees
+    /// </summary>
+    private Vector2 Rotate(Vector2 _vec, float _degrees)
     {
-        float sin = Mathf.Sin(degrees * Mathf.Deg2Rad);
-        float cos = Mathf.Cos(degrees * Mathf.Deg2Rad);
+        float _sin = Mathf.Sin(_degrees * Mathf.Deg2Rad);
+        float _cos = Mathf.Cos(_degrees * Mathf.Deg2Rad);
 
-        float tx = v.x;
-        float ty = v.y;
-        v.x = (cos * tx) - (sin * ty);
-        v.y = (sin * tx) + (cos * ty);
-        return v;
+        float _vecX = _vec.x;
+        float _vecY = _vec.y;
+        _vec.x = (_cos * _vecX) - (_sin * _vecY);
+        _vec.y = (_sin * _vecX) + (_cos * _vecY);
+        return _vec;
     }
-    Vector2 GetCatmullRomPosition(float t, Vector2[] points)
+
+    Vector2 GetCatmullRomPosition(float _t, Vector2[] _points)
     {
-        
-        return (0.5f * (2f * points[1]))
-                + ((0.5f * (points[2] - points[0])) * t)
-                + ((0.5f * (2f * points[0] - 5f * points[1] + 4f * points[2] - points[3])) * t * t)
-                + ((0.5f * (-points[0] + 3f * points[1] - 3f * points[2] + points[3])) * t * t * t);
+        return (0.5f * (2f * _points[1]))
+                + ((0.5f * (_points[2] - _points[0])) * _t)
+                + ((0.5f * (2f * _points[0] - 5f * _points[1] + 4f * _points[2] - _points[3])) * _t * _t)
+                + ((0.5f * (-_points[0] + 3f * _points[1] - 3f * _points[2] + _points[3])) * _t * _t * _t);
     }
     
-   
-
-   
-    
-    private void EqualizeDistance()
+    private void PushApartPoints()
     {
-        float _mindist = 70; 
+        // Minimum distance below which the points will be pushed apart
+        float _mindist = 100f; 
        
-        for (int i = 0; i < m_convexhull.Count; i++)  
+        for (int i = 0; i < m_convexhull.Count - 1; i++)  
         {
+            Vector2 _vec;
             for (int j = i + 1; j < m_convexhull.Count; j++)  
              {
                 if (Vector2.Distance(m_convexhull[i],m_convexhull[j]) < _mindist)  
                  {
-                    float _x = m_convexhull[j].x - m_convexhull[i].x;
-                    float _y = m_convexhull[j].y - m_convexhull[i].y;
-                    float _dist = (float)Mathf.Sqrt(_x * _x + _y * _y);
-                    _x /= _dist;
-                    _y /= _dist;
+                    _vec = m_convexhull[j] - m_convexhull[i];
+                    float _dist = _vec.magnitude;
+                    _vec /= _dist;
                     float _difference = _mindist - _dist;
-                    _x *= _difference;
-                    _y *= _difference;
-                    m_convexhull[j] += new Vector2(_x, _y);
-                    m_convexhull[i] -= new Vector2(_x, _y);
+                    _vec *= (_difference/2f);
+                  
+                    m_convexhull[j] += _vec;
+                    m_convexhull[i] -= _vec;
                  }
              }
         }
     }
+
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.red;
