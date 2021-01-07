@@ -71,33 +71,34 @@ public class ObstacleGenerator : MonoBehaviour
 
         if (obstacleState == 1)
         {
-            GenObstacles();
+            GenObstacles(true);
         }
 
         else if (obstacleState == 2)
         {
             if (m_obstacles.Count == 0)
-                GenObstacles();
+                GenObstacles(false);
             obstacleMove = true;
         }
     }
 
-    private void GenObstacles()
+    private void GenObstacles(bool _kinematic)
     {
         // Create the gameobject to instantiate repeatedly
         GameObject _obstacle = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         _obstacle.tag = "Obstacle";
         _obstacle.AddComponent<Rigidbody>().mass = 500;
+        _obstacle.GetComponent<Rigidbody>().isKinematic = _kinematic;
 
         int _waypointMark = 2;
-        for (int i = 15; i < (m_roadGen.vertices.Count)/2 - 6; i+=10)
+        for (int i = 15; i < (m_roadGen.vertices.Count)/2 - 6; i+=7)
         {
             if (UnityEngine.Random.value > 0.6f)
             {
                 float _t = UnityEngine.Random.value;
 
                 // Instantiate obstacle at random point on the road with random rotation 
-                m_obstacles.Add(Instantiate(_obstacle,transform.TransformPoint(new Vector3(Mathf.Lerp(m_roadGen.vertices[2*i].x,m_roadGen.vertices[(2*i)+1].x, _t), _obstacle.GetComponent<SphereCollider>().radius / 2f,Mathf.Lerp(m_roadGen.vertices[2 * i].z, m_roadGen.vertices[(2 * i) + 1].z, _t)) ), Quaternion.Euler(0f,UnityEngine.Random.Range(-180f,180f),0f), transform).transform);
+                m_obstacles.Add(Instantiate(_obstacle,transform.TransformPoint(new Vector3(Mathf.Lerp(m_roadGen.vertices[2*i].x,m_roadGen.vertices[(2*i)+1].x, _t), _obstacle.GetComponent<SphereCollider>().radius,Mathf.Lerp(m_roadGen.vertices[2 * i].z, m_roadGen.vertices[(2 * i) + 1].z, _t)) ), Quaternion.Euler(0f,UnityEngine.Random.Range(-180f,180f),0f), transform).transform);
 
                 // Store the midpoint of the road where the obstacle was instantiated
                 m_roadMid.Add(new Vector3((m_roadGen.vertices[2 * i].x + m_roadGen.vertices[(2 * i) + 1].x) / 2f, _obstacle.GetComponent<SphereCollider>().radius, (m_roadGen.vertices[2 * i].z + m_roadGen.vertices[(2 * i) + 1].z) / 2f));

@@ -24,7 +24,8 @@ public class CurveHandler : MonoBehaviour
     [Header("Width = max x local coordinate, Height = max y local coordinate", order = 2)]
     public Rect roadBounds;
 
-    public List<Vector2> m_splinePoints = new List<Vector2>();
+    public int sortOrder = 1;
+    public List<Vector2> splinePoints = new List<Vector2>();
    
 
     /// <summary>
@@ -40,12 +41,13 @@ public class CurveHandler : MonoBehaviour
     public class ClockwiseComparer : IComparer<Vector2>
     {
         private Vector2 m_origin;
-       
+        private int m_sortOrder;
         public Vector2 Origin { get { return m_origin; } set { m_origin = value; } }
 
-        public ClockwiseComparer(Vector2 _origin)
+        public ClockwiseComparer(Vector2 _origin,int _sortOrder)
         {
             m_origin = _origin;
+            m_sortOrder = _sortOrder;
         }
 
         /// <summary>
@@ -73,13 +75,13 @@ public class CurveHandler : MonoBehaviour
             float _angle2 = Mathf.Atan2(_secondOffset.x, _secondOffset.y);
 
             if (_angle1 < _angle2)
-                return -1;
+                return -1*m_sortOrder;
 
             if (_angle1 > _angle2)
-                return 1;
+                return 1* m_sortOrder;
 
             // Check to see which point is closest
-            return (_firstOffset.sqrMagnitude < _secondOffset.sqrMagnitude) ? -1 : 1;
+            return (_firstOffset.sqrMagnitude < _secondOffset.sqrMagnitude) ? -1*m_sortOrder : 1*m_sortOrder;
         }
     }
 
@@ -102,9 +104,9 @@ public class CurveHandler : MonoBehaviour
         QuickHull(_points, _size, _points[_minX], _points[_maxX], -1);
     }
 
-    private int FindSide(Vector2 _point1, Vector2 _point2, Vector2 _point_maxdist)
+    private int FindSide(Vector2 _point1, Vector2 _point2, Vector2 _pointMaxDist)
     {
-        int _val = LineDistance(_point1, _point2, _point_maxdist);
+        int _val = LineDistance(_point1, _point2, _pointMaxDist);
 
         if (_val > 0)
             return 1;
@@ -126,15 +128,15 @@ public class CurveHandler : MonoBehaviour
     private void QuickHull(List<Vector2> _points, int _size, Vector2 _point1, Vector2 _point2, int _side)
     {
         int _index = -1;
-        int _max_dist = 0;
+        int _maxDist = 0;
 
         for (int i = 0; i < _size; i++)
         {
             int _temp = Mathf.Abs(LineDistance(_point1, _point2, _points[i]));
-            if (FindSide(_point1, _point2, _points[i]) == _side && _temp > _max_dist)
+            if (FindSide(_point1, _point2, _points[i]) == _side && _temp > _maxDist)
             {
                 _index = i;
-                _max_dist = _temp;
+                _maxDist = _temp;
             }
         }
 
@@ -175,10 +177,10 @@ public class CurveHandler : MonoBehaviour
         CreateConvexhull(m_randPoints, m_randPoints.Count);
 
         // Sort the convexhull in clockwise order
-        m_convexhull.Sort((new CurveHandler.ClockwiseComparer(new Vector2(0f, 0f))));
+        m_convexhull.Sort((new CurveHandler.ClockwiseComparer(new Vector2(0f, 0f),sortOrder)));
 
         // Clear spline from previous episode if any
-        m_splinePoints.Clear();
+        splinePoints.Clear();
 
         GenerateTrackVariation();
         EvenlySpacedSpline();
@@ -190,7 +192,7 @@ public class CurveHandler : MonoBehaviour
         float _dstSinceLastEvenPoint = 0;
         Vector2[] _segment = new Vector2[4];
 
-        for (int pos = 1; pos < m_convexhull.Count - 3; pos++)
+        for (int pos = 0; pos < m_convexhull.Count - 3; pos++)
         {
             _segment[0] = m_convexhull[pos];
             _segment[1] = m_convexhull[pos + 1];
@@ -210,13 +212,13 @@ public class CurveHandler : MonoBehaviour
                 _dstSinceLastEvenPoint += Vector2.Distance(_previousPoint, _pointOnSpline);
 
                 // Check if the point on the spline is evenly spaces
-                // If not then move the point towards the previous point and add it to m_splinePoints
+                // If not then move the point towards the previous point and add it to splinePoints
                 // Repeat the above steps till required detail level is achieved
                 while (_dstSinceLastEvenPoint >= detailLevel)
                 {
                     float _extraDistance = _dstSinceLastEvenPoint - detailLevel;
                     Vector2 _newPoint = _pointOnSpline + (_previousPoint - _pointOnSpline).normalized * _extraDistance;
-                    m_splinePoints.Add(_newPoint);
+                    splinePoints.Add(_newPoint);
                     _dstSinceLastEvenPoint = _extraDistance;
                     _previousPoint = _newPoint;
                 }
@@ -231,25 +233,27 @@ public class CurveHandler : MonoBehaviour
         // Pushes apart points that are too close
         for (int i = 0; i < 4; i++)
         {
-            PushApartPoints();
+            PushApart();
         }
 
         DisplacePoints();
-
+        for (int i = 0; i < 5; i++)
+        {
+            PushApart();
+        }
         for (int i = 0; i < 10; i++)
         {
             FixAngles();
-
+        }
+        for (int i = 0; i < 5; i++)
+        {
+            PushApart();
         }
 
         // Sort the convexhull in clockwise order
-        m_convexhull.Sort((new CurveHandler.ClockwiseComparer(new Vector2(0f, 0f))));
+        m_convexhull.Sort((new CurveHandler.ClockwiseComparer(new Vector2(0f, 0f),sortOrder)));
 
-        // Storing the world positions in m_convexhull
-        for (int i = 0; i < m_convexhull.Count; i++)
-        {
-            m_convexhull[i] += new Vector2(transform.position.x, transform.position.z);
-        }
+       
     }
 
     /// <summary>
@@ -257,29 +261,46 @@ public class CurveHandler : MonoBehaviour
     /// </summary>
     private void FixAngles()
     {
+        
+        Vector2 _prevVec;
+        Vector2 _nextVec;
+        float _angle;
+        float _nextVecLen;
+        float nA ;
+        float _diff ;
+        float _cos;
+        float _sin;
+        float _newX ;
+        float _newY;
         for (int i = 0; i < m_convexhull.Count; i++)
         {
-            int _previousPoint = ((i - 1) < 0) ? m_convexhull.Count - 1 : i - 1;
+            int _previousPoint = ((i - 1 + m_convexhull.Count) % m_convexhull.Count);
             int _nextPoint = (i + 1) % m_convexhull.Count;
 
+            
             // Normalize vectors going to the next and coming from the previous point. 
-            Vector2 _prevVec = m_convexhull[i] - m_convexhull[_previousPoint];
-            float _prevVecLen = _prevVec.magnitude;
-            _prevVec /= _prevVecLen;
+             _prevVec = (m_convexhull[i] - m_convexhull[_previousPoint]).normalized;
+             _nextVec = (m_convexhull[_nextPoint] - m_convexhull[i]);
+            _nextVecLen = _nextVec.magnitude;
+            _nextVec.Normalize();
+             _angle = Mathf.Atan2(_prevVec.x * _nextVec.y - _prevVec.y * _nextVec.x, _prevVec.x * _nextVec.x + _prevVec.y * _nextVec.y);
 
-            Vector2 _nextVec = m_convexhull[_nextPoint] - m_convexhull[i];
-            float _nextVecLen = _nextVec.magnitude;
-            _nextVec /= _nextVecLen;
-
-            // Only smooth those angles that are less than 60
-            float _angle = Vector2.Angle(_prevVec, _nextVec);
-            if (_angle >= 80f)
+            if (Mathf.Abs(_angle * Mathf.Rad2Deg) <= 100)
             {
                 continue;
             }
 
+            nA = 100 * Mathf.Sign(_angle) * Mathf.Deg2Rad;
+            _diff = nA - _angle;
+            _cos = (float)Mathf.Cos(_diff);
+            _sin = (float)Mathf.Sin(_diff);
+            _newX = _nextVec.x * _cos - _nextVec.y * _sin;
+            _newY = _nextVec.x * _sin + _nextVec.y * _cos;
+            _newX *= _nextVecLen;
+            _newY *= _nextVecLen;
+
             // Move the middle point towards the center of the 3 points
-            m_convexhull[i] = Vector2.Lerp(m_convexhull[i], (m_convexhull[_previousPoint] + m_convexhull[i] + m_convexhull[_nextPoint]) / 3f, 0.5f);
+            m_convexhull[_nextPoint] = m_convexhull[i] + new Vector2(_newX, _newY);
         }
     }
 
@@ -289,50 +310,29 @@ public class CurveHandler : MonoBehaviour
     private void DisplacePoints()
     {
         Vector2 _displacement;
-        List<Vector2> rSet = new List<Vector2>();
+        Vector2 _normal;
+        List<Vector2> _rSet = new List<Vector2>();
 
         // MaxDisp i.e max displacement can be changed according to one's needs
-        float maxDisp = 5f; 
+        const float _maxDisp = 20f; 
         
         for (int i = 0; i < m_convexhull.Count; i++)
         {
             // Max displacement value based on difficulty
-            float dispLen = Mathf.Pow(difficulty, UnityEngine.Random.value) * maxDisp;
+            float _dispLen = Mathf.Pow(difficulty,UnityEngine.Random.value) * _maxDisp;
 
             // Selects a random displacement direction close to the perpendicular of the direction of path
-            _displacement = (m_convexhull[(i + 1) % m_convexhull.Count] - m_convexhull[i]).normalized;
-            _displacement = new Vector2(-_displacement.y, _displacement.x);
-            _displacement = Rotate(_displacement, UnityEngine.Random.Range(-20f, 20f));
-            _displacement *= dispLen;
+            _normal = (m_convexhull[(i + 1) % m_convexhull.Count] - m_convexhull[i]).normalized;
+            _displacement = new Vector2(-_normal.y, _normal.x);
+            _displacement *= _dispLen * sortOrder;
 
-            // Displace to the left or to the right of the track
-            if (UnityEngine.Random.value > 0.5f)
-            {
-                _displacement = -_displacement;
-            }
-
-            rSet.Add(new Vector2(m_convexhull[i].x, m_convexhull[i].y));
+            _rSet.Add(new Vector2(m_convexhull[i].x, m_convexhull[i].y));
 
             // Add the new displaced point between the 2 existing points
-            rSet.Add((m_convexhull[i]+m_convexhull[(i + 1) % m_convexhull.Count] / 2f) + _displacement);
+            _rSet.Add(((m_convexhull[i] + m_convexhull[(i + 1) % m_convexhull.Count]) / 2f) + _displacement);
         }
 
-        m_convexhull = new List<Vector2>(rSet);
-    }
-
-    /// <summary>
-    /// Function to rotate a vector by given degrees
-    /// </summary>
-    private Vector2 Rotate(Vector2 _vec, float _degrees)
-    {
-        float _sin = Mathf.Sin(_degrees * Mathf.Deg2Rad);
-        float _cos = Mathf.Cos(_degrees * Mathf.Deg2Rad);
-
-        float _vecX = _vec.x;
-        float _vecY = _vec.y;
-        _vec.x = (_cos * _vecX) - (_sin * _vecY);
-        _vec.y = (_sin * _vecX) + (_cos * _vecY);
-        return _vec;
+        m_convexhull = new List<Vector2>(_rSet);
     }
 
     Vector2 GetCatmullRomPosition(float _t, Vector2[] _points)
@@ -342,19 +342,23 @@ public class CurveHandler : MonoBehaviour
                 + ((0.5f * (2f * _points[0] - 5f * _points[1] + 4f * _points[2] - _points[3])) * _t * _t)
                 + ((0.5f * (-_points[0] + 3f * _points[1] - 3f * _points[2] + _points[3])) * _t * _t * _t);
     }
-    
-    private void PushApartPoints()
+    public Vector3 GetCatmullRomTangent(float t, Vector3[] points)
+    {
+        return 1.5f * (t * t) * (-points[0] + 3 * points[1] - 3 * points[2] + points[3]) + t * (2 * points[0] - 5 * points[1] + 4 * points[2] - points[3]) + 0.5f * (points[2] - points[0]);
+    }
+    private void PushApart()
     {
         // Minimum distance below which the points will be pushed apart
-        float _mindist = 100f; 
-       
-        for (int i = 0; i < m_convexhull.Count - 1; i++)  
+        const float _mindist = 80f;
+        Vector2 _vec;
+
+        for (int i = 0; i < m_convexhull.Count - 1 ; i++)  
         {
-            Vector2 _vec;
+            
             for (int j = i + 1; j < m_convexhull.Count; j++)  
-             {
+            {
                 if (Vector2.Distance(m_convexhull[i],m_convexhull[j]) < _mindist)  
-                 {
+                {
                     _vec = m_convexhull[j] - m_convexhull[i];
                     float _dist = _vec.magnitude;
                     _vec /= _dist;
@@ -363,8 +367,9 @@ public class CurveHandler : MonoBehaviour
                   
                     m_convexhull[j] += _vec;
                     m_convexhull[i] -= _vec;
-                 }
-             }
+                }
+
+            }
         }
     }
 
@@ -375,13 +380,14 @@ public class CurveHandler : MonoBehaviour
         foreach(var i in m_convexhull)
         {
             Gizmos.DrawWireSphere(new Vector3(i.x, 0f, i.y), 5f);
-            
+            //UnityEditor.Handles.Label(new Vector3(i.x, 10f, i.y), j.ToString());
             j++;
         }
-        Gizmos.color = Color.yellow;
-        foreach(var i in m_splinePoints)
+        Gizmos.color = Color.blue;
+        foreach (var i in splinePoints)
         {
-            Gizmos.DrawWireSphere(new Vector3(i.x, 0f, i.y), 2f);
+            Gizmos.DrawWireSphere(new Vector3(i.x, 0f, i.y), 1f);
+            
         }
     }
 }

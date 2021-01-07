@@ -23,7 +23,7 @@ public class CarController : MonoBehaviour
 	public WheelCollider frontRight;
 	public WheelCollider backLeft;
 	public WheelCollider backRight;
-
+	
 
 	/// <summary>
 	/// private variables
@@ -37,14 +37,15 @@ public class CarController : MonoBehaviour
 	private float m_wheelBase;
 	private float m_axleLength;
 	private Rigidbody m_rigidbody;
-
+    private Transform m_car;
 	void Start()
     {
-		m_rigidbody = GetComponent<Rigidbody>();
+		m_rigidbody = GetComponentInChildren<Rigidbody>();
 		m_rigidbody.centerOfMass = centerOfMass;
 		m_wheelBase = Vector3.Distance(frontLeftT.localPosition,backLeftT.localPosition);
 		m_axleLength = Vector3.Distance(frontLeftT.localPosition, frontRightT.localPosition);
-	}
+        m_car = transform.Find("Car");
+    }
 
 	public void Move(InputAction.CallbackContext context)
     {
@@ -122,9 +123,9 @@ public class CarController : MonoBehaviour
 	}
 
 	private void UpdateWheelPose(WheelCollider _collider, Transform _transform)
-	{
-		Vector3 _pos = _transform.position;
-		Quaternion _quat = _transform.rotation;
+    {
+        Vector3 _pos;
+		Quaternion _quat;
 
 		_collider.GetWorldPose(out _pos, out _quat);
 
@@ -138,7 +139,8 @@ public class CarController : MonoBehaviour
 		UpdateWheelPoses();
 		Accelerate();
 		Steer();
-	}
+        
+    }
 
     private void AddDownforce()
     {

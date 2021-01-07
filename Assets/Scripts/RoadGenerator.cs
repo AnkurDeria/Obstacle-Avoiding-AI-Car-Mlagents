@@ -13,7 +13,7 @@ public class RoadGenerator : MonoBehaviour
     /// <summary>
     /// public variables
     /// </summary>
-    
+
     [Range(3, 10)]
     public float halfRoadWidth;
 
@@ -33,11 +33,11 @@ public class RoadGenerator : MonoBehaviour
     private MeshCollider[] m_meshCollider = new MeshCollider[3];
     private MeshFilter[] m_mesh = new MeshFilter[3];
     private ObstacleGenerator m_obstacle;
-   
+
     void Start()
     {
         m_curves = transform.GetComponent<CurveHandler>();
-        if(isRoadBoundary)
+        if (isRoadBoundary)
         {
             GameObject m_roadBoundary = new GameObject("Road Boundary");
             m_roadBoundary.AddComponent<MeshCollider>();
@@ -61,14 +61,15 @@ public class RoadGenerator : MonoBehaviour
     /// <summary>
     /// Generate the road
     /// </summary>
-    public void GenTrack()
+    public void GenTrack(int _sortOrder)
     {
         // Clear all variables every time a new road is made
         ResetVariables();
 
+        m_curves.sortOrder = _sortOrder;
         // Generate catmull rom spline from the convexhull points
         m_curves.GenerateSpline();
-       
+
         GenMesh();
 
         GenWaypoints();
@@ -110,17 +111,22 @@ public class RoadGenerator : MonoBehaviour
         _waypoint.AddComponent<BoxCollider>();
         _waypoint.isStatic = true;
         BoxCollider _waypointcol = _waypoint.GetComponent<BoxCollider>();
-        _waypointcol.size = new Vector3(halfRoadWidth,2* halfRoadWidth,0.1f);
+        _waypointcol.size = new Vector3(halfRoadWidth, 2 * halfRoadWidth, 0.1f);
         _waypointcol.isTrigger = true;
-        
+
         // Instantiating the checkpoints along the road with proper rotation
-        Vector3 _vec1, _vec2;
-        for(int i=8;i< m_curves.m_splinePoints.Count - 5;i+=7)
+        Vector3 _vec1;
+            Vector3 _vec2;
+            Vector3 _vec3;
+
+        for (int i = 8; i < m_curves.splinePoints.Count - 5; i += 5)
         {
-            _vec1 = new Vector3(m_curves.m_splinePoints[i + 1].x, 0f, m_curves.m_splinePoints[i + 1].y);
-            _vec2 = new Vector3(m_curves.m_splinePoints[i-1].x, 0f, m_curves.m_splinePoints[i-1].y);
-            Quaternion _rot = Quaternion.LookRotation((_vec1 - _vec2).normalized, Vector3.up);
-            waypoints.Add(Instantiate(_waypoint, (new Vector3(m_curves.m_splinePoints[i].x, halfRoadWidth, m_curves.m_splinePoints[i].y)), _rot, waypointParent).transform);
+            _vec1 = new Vector3(m_curves.splinePoints[i + 1].x, 0f, m_curves.splinePoints[i + 1].y);
+            _vec2 = new Vector3(m_curves.splinePoints[i - 1].x, 0f, m_curves.splinePoints[i - 1].y);
+            _vec3 = ((new Vector3(m_curves.splinePoints[i].x, 0f, m_curves.splinePoints[i].y) - _vec2) +
+                     (_vec1 - new Vector3(m_curves.splinePoints[i].x, 0f, m_curves.splinePoints[i].y))) / 2f;
+            Quaternion _rot = Quaternion.LookRotation(transform.TransformDirection(_vec3.normalized), Vector3.up);
+            waypoints.Add(Instantiate(_waypoint, transform.TransformPoint(new Vector3(m_curves.splinePoints[i].x, halfRoadWidth, m_curves.splinePoints[i].y)), _rot, waypointParent).transform);
 
             m_obstacle.waypointOnSpline.Add(i);
         }
@@ -139,26 +145,32 @@ public class RoadGenerator : MonoBehaviour
         List<Vector3> _boundaryVertices1 = new List<Vector3>();
         List<Vector3> _boundaryVertices2 = new List<Vector3>();
         List<int> _triangles = new List<int>();
+        Vector2 _tangent;
+        Vector3 _tangent3;
 
         // Assigning vertices and normals
-        for (int i = 0; i < m_curves.m_splinePoints.Count - 1; i++)
+        for (int i = 0; i < m_curves.splinePoints.Count; i++)
         {
+            _tangent = Vector2.zero;
+
             // Calculating normal to the direction of road
-            Vector2 _vec2 = (m_curves.m_splinePoints[i + 1] - m_curves.m_splinePoints[i]).normalized;
-            Vector3 _vec2tovec3 = new Vector3(-_vec2.y, 0f, _vec2.x);
-           
-            Vector3 _newvec3 = transform.InverseTransformPoint(new Vector3(m_curves.m_splinePoints[i].x, 0f, m_curves.m_splinePoints[i].y));
-            vertices.Add(_newvec3 + (_vec2tovec3 * halfRoadWidth));
+            _tangent += m_curves.splinePoints[(i + 1) % m_curves.splinePoints.Count] - m_curves.splinePoints[i];
+            _tangent += m_curves.splinePoints[i] - m_curves.splinePoints[(i - 1 + m_curves.splinePoints.Count) % m_curves.splinePoints.Count];
+            _tangent.Normalize();
+            _tangent3 = new Vector3(-_tangent.y, 0f, _tangent.x);
+
+            Vector3 _newvec3 = new Vector3(m_curves.splinePoints[i].x, 0f, m_curves.splinePoints[i].y);
+            vertices.Add(_newvec3 + (_tangent3 * halfRoadWidth));
             _normals.Add(Vector3.up);
-            vertices.Add(_newvec3 + (-_vec2tovec3 * halfRoadWidth));
+            vertices.Add(_newvec3 + (-_tangent3 * halfRoadWidth));
             _normals.Add(Vector3.up);
 
-            if(isRoadBoundary)
+            if (isRoadBoundary)
             {
-                _boundaryVertices1.Add(_newvec3 + (_vec2tovec3 * halfRoadWidth));
-                _boundaryVertices1.Add((_newvec3 + (_vec2tovec3 * halfRoadWidth)) + Vector3.up * 10f);
-                _boundaryVertices2.Add(_newvec3 + (_vec2tovec3 * halfRoadWidth));
-                _boundaryVertices2.Add((_newvec3 + (_vec2tovec3 * halfRoadWidth)) + Vector3.up * 10f);
+                _boundaryVertices1.Add(_newvec3 + (_tangent3 * halfRoadWidth));
+                _boundaryVertices1.Add((_newvec3 + (_tangent3 * halfRoadWidth)) + Vector3.up * 10f);
+                _boundaryVertices2.Add(_newvec3 + (_tangent3 * halfRoadWidth));
+                _boundaryVertices2.Add((_newvec3 + (_tangent3 * halfRoadWidth)) + Vector3.up * 10f);
             }
         }
 
@@ -187,7 +199,7 @@ public class RoadGenerator : MonoBehaviour
                 _boundaryTriangles2.Add(i + 1);
             }
         }
-        
+
         // Setting the values for the mesh
         m_mesh[0].mesh.SetVertices(vertices);
         m_mesh[0].mesh.SetTriangles(_triangles, 0);
