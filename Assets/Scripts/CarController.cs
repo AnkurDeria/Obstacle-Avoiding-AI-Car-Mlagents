@@ -5,31 +5,25 @@ using UnityEngine.InputSystem;
 public class CarController : MonoBehaviour
 {
 	/// <summary>
-	/// public variables
-	/// </summary>
-
-	[Range(0.01f,1f)] public float turnSensitivity;
-
-	public float downForceValue = 50;
-	public float maxSteerAngle = 35f;
-	public float motorForce = 500f;
-	public float brakeForce = 100f;
-	public Transform frontLeftT;
-	public Transform frontRightT;
-	public Transform backLeftT;
-	public Transform backRightT;
-	public Vector3 centerOfMass = new Vector3(0.0f, -0.05f, 0.0f);
-	public WheelCollider frontLeft;
-	public WheelCollider frontRight;
-	public WheelCollider backLeft;
-	public WheelCollider backRight;
-	
-
-	/// <summary>
 	/// private variables
 	/// </summary>
+	
+	[Range(0.01f,1f)] [SerializeField] private float m_turnSensitivity;
 
+	[SerializeField] private float m_downForceValue = 50;
+	[SerializeField] private float m_maxSteerAngle = 35f;
+	[SerializeField] private float m_motorForce = 500f;
+	[SerializeField] private float m_brakeForce = 100f;
+	[SerializeField] private Transform m_frontLeftT;
+	[SerializeField] private Transform m_frontRightT;
+	[SerializeField] private Transform m_backLeftT;
+	[SerializeField] private Transform m_backRightT;
 	[SerializeField] private Vector2 m_movement = new Vector2(0f, 0f);
+	[SerializeField] private Vector3 m_centerOfMass = new Vector3(0.0f, -0.05f, 0.0f);
+	[SerializeField] private WheelCollider m_frontLeft;
+	[SerializeField] private WheelCollider m_frontRight;
+	[SerializeField] private WheelCollider m_backLeft;
+	[SerializeField] private WheelCollider m_backRight;
 
 	private float m_turnRadius;
 	private float m_curSpeed;
@@ -37,15 +31,24 @@ public class CarController : MonoBehaviour
 	private float m_wheelBase;
 	private float m_axleLength;
 	private Rigidbody m_rigidbody;
-    private Transform m_car;
+
 	void Start()
     {
 		m_rigidbody = GetComponentInChildren<Rigidbody>();
-		m_rigidbody.centerOfMass = centerOfMass;
-		m_wheelBase = Vector3.Distance(frontLeftT.localPosition,backLeftT.localPosition);
-		m_axleLength = Vector3.Distance(frontLeftT.localPosition, frontRightT.localPosition);
-        m_car = transform.Find("Car");
+		m_rigidbody.centerOfMass = m_centerOfMass;
+		m_wheelBase = Vector3.Distance(m_frontLeftT.localPosition,m_backLeftT.localPosition);
+		m_axleLength = Vector3.Distance(m_frontLeftT.localPosition, m_frontRightT.localPosition);
     }
+
+	public float GetSteeringAngle()
+    {
+		return ((m_frontRight.steerAngle +m_frontLeft.steerAngle) / 2f) / 55f;
+	}
+
+	public float GetTorque()
+	{
+		return (m_frontRight.motorTorque / 700f);
+	}
 
 	public void Move(InputAction.CallbackContext context)
     {
@@ -64,25 +67,25 @@ public class CarController : MonoBehaviour
 	/// </summary>
 	private void Steer()
 	{
-		m_turnRadius = maxSteerAngle * m_movement.x;
+		m_turnRadius = m_maxSteerAngle * m_movement.x;
 		m_turnRadius = m_axleLength / Mathf.Tan(m_turnRadius * Mathf.Deg2Rad);
 
 		if (m_movement.x > 0)
 		{
-			frontLeft.steerAngle = Mathf.Lerp(frontLeft.steerAngle,Mathf.Rad2Deg * Mathf.Atan(m_wheelBase / (m_turnRadius + (m_axleLength / 2f))) * m_movement.x, turnSensitivity);
-			frontRight.steerAngle = Mathf.Lerp(frontRight.steerAngle,Mathf.Rad2Deg * Mathf.Atan(m_wheelBase / (m_turnRadius - (m_axleLength / 2f))) * m_movement.x, turnSensitivity);
+			m_frontLeft.steerAngle = Mathf.Lerp(m_frontLeft.steerAngle,Mathf.Rad2Deg * Mathf.Atan(m_wheelBase / (m_turnRadius + (m_axleLength / 2f))) * m_movement.x, m_turnSensitivity);
+			m_frontRight.steerAngle = Mathf.Lerp(m_frontRight.steerAngle,Mathf.Rad2Deg * Mathf.Atan(m_wheelBase / (m_turnRadius - (m_axleLength / 2f))) * m_movement.x, m_turnSensitivity);
 		}
 
 		else if (m_movement.x < 0)
 		{
-			frontRight.steerAngle = Mathf.Lerp(frontRight.steerAngle,Mathf.Rad2Deg * Mathf.Atan(m_wheelBase / (-m_turnRadius + (m_axleLength / 2f))) * m_movement.x, turnSensitivity);
-			frontLeft.steerAngle = Mathf.Lerp(frontLeft.steerAngle,Mathf.Rad2Deg * Mathf.Atan(m_wheelBase / (-m_turnRadius - (m_axleLength / 2f))) * m_movement.x, turnSensitivity);
+			m_frontRight.steerAngle = Mathf.Lerp(m_frontRight.steerAngle,Mathf.Rad2Deg * Mathf.Atan(m_wheelBase / (-m_turnRadius + (m_axleLength / 2f))) * m_movement.x, m_turnSensitivity);
+			m_frontLeft.steerAngle = Mathf.Lerp(m_frontLeft.steerAngle,Mathf.Rad2Deg * Mathf.Atan(m_wheelBase / (-m_turnRadius - (m_axleLength / 2f))) * m_movement.x, m_turnSensitivity);
 		}
 
 		else
 		{
-			frontLeft.steerAngle = Mathf.Lerp(frontLeft.steerAngle, 0, turnSensitivity);
-			frontRight.steerAngle = Mathf.Lerp(frontRight.steerAngle, 0, turnSensitivity);
+			m_frontLeft.steerAngle = Mathf.Lerp(m_frontLeft.steerAngle, 0, m_turnSensitivity);
+			m_frontRight.steerAngle = Mathf.Lerp(m_frontRight.steerAngle, 0, m_turnSensitivity);
 		}
 	}
 
@@ -93,33 +96,33 @@ public class CarController : MonoBehaviour
 
         if (m_curSpeed < 17f)
         {
-            backLeft.brakeTorque = 0;
-            backRight.brakeTorque = 0;
-            frontLeft.brakeTorque = 0;
-            frontRight.brakeTorque = 0;
-            m_torque = m_movement.y * motorForce * 500 * Time.fixedDeltaTime;
-            backLeft.motorTorque = m_torque;
-            backRight.motorTorque = m_torque;
-            frontLeft.motorTorque = m_torque;
-            frontRight.motorTorque = m_torque;
+            m_backLeft.brakeTorque = 0;
+            m_backRight.brakeTorque = 0;
+            m_frontLeft.brakeTorque = 0;
+            m_frontRight.brakeTorque = 0;
+            m_torque = m_movement.y * m_motorForce * 500 * Time.fixedDeltaTime;
+            m_backLeft.motorTorque = m_torque;
+            m_backRight.motorTorque = m_torque;
+            m_frontLeft.motorTorque = m_torque;
+            m_frontRight.motorTorque = m_torque;
         }
 
-        // If speed exceeds 30 apply brake
+        // If speed exceeds 17 apply brake
         else
 		{
-			backLeft.brakeTorque = brakeForce;
-			backRight.brakeTorque = brakeForce;
-			frontLeft.brakeTorque = brakeForce;
-			frontRight.brakeTorque = brakeForce;
+			m_backLeft.brakeTorque = m_brakeForce;
+			m_backRight.brakeTorque = m_brakeForce;
+			m_frontLeft.brakeTorque = m_brakeForce;
+			m_frontRight.brakeTorque = m_brakeForce;
 		}
 	}
 
 	private void UpdateWheelPoses()
 	{
-		UpdateWheelPose(frontLeft, frontLeftT);
-		UpdateWheelPose(frontRight, frontRightT);
-		UpdateWheelPose(backLeft, backLeftT);
-		UpdateWheelPose(backRight, backRightT);
+		UpdateWheelPose(m_frontLeft, m_frontLeftT);
+		UpdateWheelPose(m_frontRight, m_frontRightT);
+		UpdateWheelPose(m_backLeft, m_backLeftT);
+		UpdateWheelPose(m_backRight, m_backRightT);
 	}
 
 	private void UpdateWheelPose(WheelCollider _collider, Transform _transform)
@@ -144,6 +147,6 @@ public class CarController : MonoBehaviour
 
     private void AddDownforce()
     {
-		m_rigidbody.AddForce(-transform.up * downForceValue * m_rigidbody.velocity.magnitude);
+		m_rigidbody.AddForce(-transform.up * m_downForceValue * m_rigidbody.velocity.magnitude);
     }
 }

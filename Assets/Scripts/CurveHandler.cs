@@ -8,29 +8,29 @@ public class CurveHandler : MonoBehaviour
     /// public variables
     /// </summary>
 
-    [Header("The lower the value the more dense the mesh")]
-    [Range(0.01f, 10f)] public float detailLevel;
-
-    [Header("The higher the value the more difficult the track")]
-    [Range(0.05f, 50f)] public float difficulty;
-
-    [Header("Number of random points to be generated", order = 0)]
-    [Space(-10, order = 1)]
-    [Header("for the procedural track", order = 2)]
-    [Range(3, 100)] public int pointDensity;
-
-    [Header("X = min x local coordinate, Y = min y local coordinate", order = 0)]
-    [Space(-10, order = 1)]
-    [Header("Width = max x local coordinate, Height = max y local coordinate", order = 2)]
-    public Rect roadBounds;
-
     public int sortOrder = 1;
     public List<Vector2> splinePoints = new List<Vector2>();
-   
+
 
     /// <summary>
     /// private variables
     /// </summary>
+    
+    [Header("The lower the value the more dense the mesh")]
+    [SerializeField] [Range(0.01f, 10f)] private float m_detailLevel;
+
+    [Header("The higher the value the more difficult the track")]
+    [SerializeField] [Range(0.05f, 50f)] private float m_difficulty;
+
+    [Header("Number of random points to be generated", order = 0)]
+    [Space(-10, order = 1)]
+    [Header("for the procedural track", order = 2)]
+    [SerializeField] [Range(3, 100)] private int m_pointDensity;
+
+    [Header("X = min x local coordinate, Y = min y local coordinate", order = 0)]
+    [Space(-10, order = 1)]
+    [Header("Width = max x local coordinate, Height = max y local coordinate", order = 2)]
+    [SerializeField] private Rect m_roadBounds;
 
     [SerializeField] private List<Vector2> m_convexhull = new List<Vector2>();
     [SerializeField] private List<Vector2> m_randPoints = new List<Vector2>();
@@ -157,10 +157,10 @@ public class CurveHandler : MonoBehaviour
     private void GenPoints()
     {
         // Generates random points within a given area
-        for (int i = 0; i < pointDensity; i++)
+        for (int i = 0; i < m_pointDensity; i++)
         {
-            float _rand1 = UnityEngine.Random.Range(roadBounds.x, roadBounds.width);
-            float _rand2 = UnityEngine.Random.Range(roadBounds.y, roadBounds.height);
+            float _rand1 = UnityEngine.Random.Range(m_roadBounds.x, m_roadBounds.width);
+            float _rand2 = UnityEngine.Random.Range(m_roadBounds.y, m_roadBounds.height);
             m_randPoints.Add(new Vector2(_rand1, _rand2));
         }
     }
@@ -214,9 +214,9 @@ public class CurveHandler : MonoBehaviour
                 // Check if the point on the spline is evenly spaces
                 // If not then move the point towards the previous point and add it to splinePoints
                 // Repeat the above steps till required detail level is achieved
-                while (_dstSinceLastEvenPoint >= detailLevel)
+                while (_dstSinceLastEvenPoint >= m_detailLevel)
                 {
-                    float _extraDistance = _dstSinceLastEvenPoint - detailLevel;
+                    float _extraDistance = _dstSinceLastEvenPoint - m_detailLevel;
                     Vector2 _newPoint = _pointOnSpline + (_previousPoint - _pointOnSpline).normalized * _extraDistance;
                     splinePoints.Add(_newPoint);
                     _dstSinceLastEvenPoint = _extraDistance;
@@ -237,14 +237,17 @@ public class CurveHandler : MonoBehaviour
         }
 
         DisplacePoints();
+
         for (int i = 0; i < 5; i++)
         {
             PushApart();
         }
+
         for (int i = 0; i < 10; i++)
         {
             FixAngles();
         }
+
         for (int i = 0; i < 5; i++)
         {
             PushApart();
@@ -252,12 +255,10 @@ public class CurveHandler : MonoBehaviour
 
         // Sort the convexhull in clockwise order
         m_convexhull.Sort((new CurveHandler.ClockwiseComparer(new Vector2(0f, 0f),sortOrder)));
-
-       
     }
 
     /// <summary>
-    /// If angle formed by 3 points at the middle point is less than 80 then this function increases that angle
+    /// Function to check max angle between 2 points never greater than 100 degrees
     /// </summary>
     private void FixAngles()
     {
@@ -266,7 +267,7 @@ public class CurveHandler : MonoBehaviour
         Vector2 _nextVec;
         float _angle;
         float _nextVecLen;
-        float nA ;
+        float _nAngle ;
         float _diff ;
         float _cos;
         float _sin;
@@ -283,6 +284,8 @@ public class CurveHandler : MonoBehaviour
              _nextVec = (m_convexhull[_nextPoint] - m_convexhull[i]);
             _nextVecLen = _nextVec.magnitude;
             _nextVec.Normalize();
+
+            // Perp dot product
              _angle = Mathf.Atan2(_prevVec.x * _nextVec.y - _prevVec.y * _nextVec.x, _prevVec.x * _nextVec.x + _prevVec.y * _nextVec.y);
 
             if (Mathf.Abs(_angle * Mathf.Rad2Deg) <= 100)
@@ -290,8 +293,8 @@ public class CurveHandler : MonoBehaviour
                 continue;
             }
 
-            nA = 100 * Mathf.Sign(_angle) * Mathf.Deg2Rad;
-            _diff = nA - _angle;
+            _nAngle = 100 * Mathf.Sign(_angle) * Mathf.Deg2Rad;
+            _diff = _nAngle - _angle;
             _cos = (float)Mathf.Cos(_diff);
             _sin = (float)Mathf.Sin(_diff);
             _newX = _nextVec.x * _cos - _nextVec.y * _sin;
@@ -299,7 +302,7 @@ public class CurveHandler : MonoBehaviour
             _newX *= _nextVecLen;
             _newY *= _nextVecLen;
 
-            // Move the middle point towards the center of the 3 points
+            // Move the next point to the new position
             m_convexhull[_nextPoint] = m_convexhull[i] + new Vector2(_newX, _newY);
         }
     }
@@ -319,7 +322,7 @@ public class CurveHandler : MonoBehaviour
         for (int i = 0; i < m_convexhull.Count; i++)
         {
             // Max displacement value based on difficulty
-            float _dispLen = Mathf.Pow(difficulty,UnityEngine.Random.value) * _maxDisp;
+            float _dispLen = Mathf.Pow(m_difficulty,UnityEngine.Random.value) * _maxDisp;
 
             // Selects a random displacement direction close to the perpendicular of the direction of path
             _normal = (m_convexhull[(i + 1) % m_convexhull.Count] - m_convexhull[i]).normalized;
@@ -382,12 +385,6 @@ public class CurveHandler : MonoBehaviour
             Gizmos.DrawWireSphere(new Vector3(i.x, 0f, i.y), 5f);
             //UnityEditor.Handles.Label(new Vector3(i.x, 10f, i.y), j.ToString());
             j++;
-        }
-        Gizmos.color = Color.blue;
-        foreach (var i in splinePoints)
-        {
-            Gizmos.DrawWireSphere(new Vector3(i.x, 0f, i.y), 1f);
-            
         }
     }
 }

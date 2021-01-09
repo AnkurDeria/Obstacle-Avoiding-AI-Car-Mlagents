@@ -6,15 +6,6 @@ using UnityEngine;
 public class CarAgent : Agent
 {
     /// <summary>
-    /// public variables
-    /// </summary>
-
-    public GameObject road;
-    public GameObject obstacles;
-    public Transform target;
-
-
-    /// <summary>
     /// private variables
     /// </summary>
 
@@ -25,11 +16,14 @@ public class CarAgent : Agent
     [SerializeField] private int m_obstacleHit;
     [SerializeField] private int m_prevObstacleHit;
     [SerializeField] private int m_nextCheckpointNumber;
+    [SerializeField] private GameObject m_road;
+    [SerializeField] private GameObject m_obstacles;
+    [SerializeField] private Transform m_target;
     [SerializeField] private Vector3 m_dirToTarget;
     [SerializeField] private Vector3 m_velocity;
     [SerializeField] private Vector3 m_angularVelocity;
 
-    private CarController m_carController;
+    private WheelVehicle m_carController;
     private int m_steps;
     private int m_deadCounter;
     private ObstacleGenerator m_obstacleGen;
@@ -46,15 +40,15 @@ public class CarAgent : Agent
     //private Vector3 m_prevToCar;
     //private Vector3 m_closestPoint;
     //private float m_laneOffset;
-    private RaycastHit m_rayout;
+    //private RaycastHit m_rayout;
 
     public override void Initialize()
     {
-        m_roadGen = road.GetComponent<RoadGenerator>();
-        m_carController = GetComponent<CarController>();
+        m_roadGen = m_road.GetComponent<RoadGenerator>();
+        m_carController = GetComponent<WheelVehicle>();
         m_carRigidbody = GetComponentInChildren<Rigidbody>();
         m_wheelColliders = GetComponentsInChildren<WheelCollider>();
-        m_obstacleGen = obstacles.GetComponent<ObstacleGenerator>();
+        m_obstacleGen = m_obstacles.GetComponent<ObstacleGenerator>();
     }
 
     public override void OnEpisodeBegin()
@@ -91,9 +85,9 @@ public class CarAgent : Agent
         // Agent's normalized local position
         sensor.AddObservation(new Vector2(transform.localPosition.x / 500f, transform.localPosition.z / 500f)); // vec2
 
-        
-        sensor.AddObservation(m_carController.backRight.motorTorque/700f); //float
-        sensor.AddObservation(((m_carController.frontRight.steerAngle + m_carController.frontLeft.steerAngle)/2f)/55f); //float
+        // Agent's normalized torque and steering angle
+        sensor.AddObservation(m_carController.GetTorque()); //float
+        sensor.AddObservation(m_carController.GetSteeringAngle()); //float
         
         // Calculate the direction to incoming checkpoint
         m_dirToTarget = (m_checkpointPos - transform.localPosition).normalized;
@@ -108,12 +102,15 @@ public class CarAgent : Agent
 
     private void RoadAndObstacleReset()
     {
+        // Randomly select clockwise or anti-clockwise sorting of control points of spline
         float _rand = UnityEngine.Random.Range(-1f, 1f);
-        // Generates the road
+
+        // Generates the road 
         m_roadGen.GenTrack((int)(Mathf.Sign(_rand) * Mathf.Ceil(Mathf.Abs(_rand))));
 
         // Randomly sets road with obstacles or no obstacles (put range 0-3 if you want obstacles to move)
         m_obstacleGen.obstacleState = UnityEngine.Random.Range(0, 2);
+        m_obstacleGen.obstacleDensity = UnityEngine.Random.Range(0.2f, 0.9f);
         m_obstacleGen.ObstacleStateChange();
 
         // Sets random speed for obstacles
@@ -183,8 +180,8 @@ public class CarAgent : Agent
         //m_prevCheckpointPos = transform.localPosition;
 
         // Assigns target position
-        target.transform.localPosition = ((m_roadGen.vertices[m_roadGen.vertices.Count - 1] + m_roadGen.vertices[m_roadGen.vertices.Count - 2] + m_roadGen.vertices[m_roadGen.vertices.Count - 3] + m_roadGen.vertices[m_roadGen.vertices.Count - 4]) / 4f);
-        target.transform.localPosition += new Vector3(0, 0.5f, 0);
+        m_target.transform.localPosition = ((m_roadGen.vertices[m_roadGen.vertices.Count - 1] + m_roadGen.vertices[m_roadGen.vertices.Count - 2] + m_roadGen.vertices[m_roadGen.vertices.Count - 3] + m_roadGen.vertices[m_roadGen.vertices.Count - 4]) / 4f);
+        m_target.transform.localPosition += new Vector3(0, 0.5f, 0);
     }
 
     private void OnCollisionStay(Collision collision)
@@ -204,10 +201,12 @@ public class CarAgent : Agent
     {
         if (other.collider.CompareTag("Obstacle"))
         {
-            Debug.Log("Collided with obstacle, negative reward = " + (-1f * (m_obstacleHit + 1) * (m_currentReward / 5f)));
+            //Debug.Log("Collided with obstacle, negative reward = " + (-1f * (m_obstacleHit + 1) * (m_currentReward / 5f)));
+
             // Reset reward to -1 if agent hits obstacle
             m_currentReward += -1f * (m_obstacleHit+1) * (m_currentReward / 10f);
             AddReward(-1f * (m_obstacleHit+1) * (m_currentReward/10f));
+
             m_obstacleHit++;
         }
     }
@@ -253,9 +252,10 @@ public class CarAgent : Agent
             // If agent collided with the wrong checkpoint
             else
             {
+                //Debug.Log("Bad Checkpoint");
+
                 m_currentReward += (-1f);
                 AddReward(-1f);
-                //Debug.Log("Bad Checkpoint");
             }
         }
 
@@ -285,7 +285,7 @@ public class CarAgent : Agent
         // If there are no checkpoints left then assign the final target
         else
         {
-            m_nextCheckpoint = target.transform;
+            m_nextCheckpoint = m_target.transform;
             m_checkpointPos = (new Vector3(m_nextCheckpoint.localPosition.x, transform.localPosition.y, m_nextCheckpoint.localPosition.z));
             m_nextCheckpointNumber++;
 
@@ -299,7 +299,7 @@ public class CarAgent : Agent
     {
         CheckDistanceFromCheckpoint();
 
-        if (m_carRigidbody.velocity.magnitude > 3f)
+        if (m_carRigidbody.velocity.magnitude > 1f)
         {
             // Reward based on how far the agent is from the middle of road
             //m_currentReward += (1f / (3000f * m_laneOffset * m_laneOffset * m_laneOffset));
@@ -311,12 +311,12 @@ public class CarAgent : Agent
         }
 
         // If agent's speed is too low or its off the track for a certain amount of time then end the episode
-        if (m_carRigidbody.velocity.magnitude < 1f || !m_allGrounded)
+        if (m_carRigidbody.velocity.magnitude < 0.3f || !m_allGrounded)
         {
             m_deadCounter++;
         }
 
-        if (m_carRigidbody.velocity.magnitude > 1f && m_allGrounded)
+        if (m_carRigidbody.velocity.magnitude > 0.3f && m_allGrounded)
         {
             m_deadCounter = 0;
         }
@@ -353,6 +353,11 @@ public class CarAgent : Agent
     {
         foreach (WheelCollider tempcol in m_wheelColliders)
         {
+            if(transform.position.y >=1f || transform.position.y<=0f)
+            {
+                NextEpisode(-1f);
+            }
+
             if (!tempcol.isGrounded)
             {
                 m_allGrounded = false;
@@ -367,9 +372,9 @@ public class CarAgent : Agent
                 {
                     AddReward(-1f * m_nextCheckpointNumber);
                     EndEpisode();
+
                     //m_currentReward += -0.5f;
                     //AddReward(-0.5f);
-
                 }
             }
         }
@@ -388,10 +393,9 @@ public class CarAgent : Agent
     private void FixedUpdate()
     {
         m_steps++;
-        m_velocity = transform.InverseTransformDirection(m_carRigidbody.velocity) / 20f;
+       
         m_allGrounded = true;
-        m_dirToTarget = (m_checkpointPos - transform.localPosition).normalized;
-        m_angularVelocity = transform.InverseTransformDirection(m_carRigidbody.angularVelocity) / 3f;
+        
         //CalcLaneOffset();
         CheckGrounded();
         CheckMovement();
@@ -420,14 +424,14 @@ public class CarAgent : Agent
         //m_dirToTarget = (m_checkpointPos - transform.localPosition).normalized;
         //Debug.Log("Dot product (agent forward,dirToTarget) = "+Vector3.Dot(transform.forward, m_dirToTarget)); 
         //Debug.Log("Velocity = " + transform.InverseTransformDirection(m_carRigidbody.velocity)/20f);
-        Debug.Log("Steering = " + ((m_carController.frontRight.steerAngle + m_carController.frontLeft.steerAngle) / 2f) / 55f);
+        //Debug.Log("Steering = " + m_carController.GetSteeringAngle());
         
         //Physics.Raycast(transform.position + (transform.forward * (1.97f)), Vector3.down, out m_rayout, 10f);
         //Debug.Log("Raycast hit = " + m_rayout.collider.tag);
 
-        //Line showing direction to incoming checking
+        // Line showing direction to incoming checking
         //Debug.DrawLine(transform.position, transform.position + m_dirToTarget * 10f, Color.red);
-        //Line showing agent's forward direction
+        // Line showing agent's forward direction
         //Debug.DrawLine(transform.position, transform.position + 10f * transform.forward, Color.blue);
     }
 }

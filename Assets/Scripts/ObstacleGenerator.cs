@@ -9,20 +9,24 @@ public class ObstacleGenerator : MonoBehaviour
     /// public variables
     /// </summary>
 
+    [Range(0f, 1.1f)] public float obstacleDensity;
+
     [Header("0 for no obstacles, 1 for static obstacles,", order = 0)]
     [Space(-10, order = 1)]
     [Header("2 for moving obstacles", order = 2)]
     public int obstacleState = 0;
-
-    public bool obstacleMove = false;
+    
     public float obstacleSpeed;
     public List<int> waypointOnSpline = new List<int>();
     public List<int> obstaclesBeforeWaypoint = new List<int>();
-    
+
 
     /// <summary>
     /// private variables
     /// </summary>
+
+    [SerializeField] private bool m_obstacleMove = false;
+    [SerializeField] private Material m_obstacleMaterial;
 
     private List<float> m_obstacleRandSpeed = new List<float>();
     private List<Vector3> m_obstacleMoveDir = new List<Vector3>();
@@ -66,7 +70,7 @@ public class ObstacleGenerator : MonoBehaviour
             m_roadMid.Clear();
             foreach (Transform child in transform)
                 GameObject.Destroy(child.gameObject);
-            obstacleMove = false;
+            m_obstacleMove = false;
         }
 
         if (obstacleState == 1)
@@ -78,7 +82,7 @@ public class ObstacleGenerator : MonoBehaviour
         {
             if (m_obstacles.Count == 0)
                 GenObstacles(false);
-            obstacleMove = true;
+            m_obstacleMove = true;
         }
     }
 
@@ -87,13 +91,14 @@ public class ObstacleGenerator : MonoBehaviour
         // Create the gameobject to instantiate repeatedly
         GameObject _obstacle = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         _obstacle.tag = "Obstacle";
+        _obstacle.GetComponent<MeshRenderer>().material = m_obstacleMaterial;
         _obstacle.AddComponent<Rigidbody>().mass = 500;
         _obstacle.GetComponent<Rigidbody>().isKinematic = _kinematic;
 
         int _waypointMark = 2;
-        for (int i = 15; i < (m_roadGen.vertices.Count)/2 - 6; i+=7)
+        for (int i = 10; i < (m_roadGen.vertices.Count)/2 - 6; i+=2)
         {
-            if (UnityEngine.Random.value > 0.6f)
+            if (UnityEngine.Random.value > 1f - obstacleDensity)
             {
                 float _t = UnityEngine.Random.value;
 
@@ -128,7 +133,7 @@ public class ObstacleGenerator : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (obstacleMove)
+        if (m_obstacleMove)
         {
             // Move the obstacle perpendicular to the direction of the road
             for (int i = 0; i < m_obstacles.Count; i++)
