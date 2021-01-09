@@ -337,7 +337,7 @@ public class CarAgent : Agent
         // Gives reward every 50th step
         if (m_steps % 50 == 0)
         {
-            //Debug.Log("Distance reward = " + (m_prevDistanceToTarget - m_distanceToTarget) / 50f);
+            //Debug.Log("Distance reward = " + (m_prevDistanceToTarget - m_distanceToTarget) / 25f);
 
             m_currentReward += (m_prevDistanceToTarget - m_distanceToTarget) / 25f;
             AddReward((m_prevDistanceToTarget - m_distanceToTarget) / 25f);

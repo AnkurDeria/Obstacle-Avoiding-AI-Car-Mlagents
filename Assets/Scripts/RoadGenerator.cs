@@ -2,11 +2,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-
 [RequireComponent(typeof(MeshFilter))]
 [RequireComponent(typeof(MeshCollider))]
-
-//[RequireComponent(typeof(LineRenderer))]
 
 public class RoadGenerator : MonoBehaviour
 {
@@ -67,7 +64,9 @@ public class RoadGenerator : MonoBehaviour
         // Clear all variables every time a new road is made
         ResetVariables();
 
+        // Sorting order clockwise or anti-clockwise
         m_curves.sortOrder = _sortOrder;
+
         // Generate catmull rom spline from the convexhull points
         m_curves.GenerateSpline();
 
@@ -140,6 +139,7 @@ public class RoadGenerator : MonoBehaviour
     /// </summary>
     private void GenMesh()
     {
+        float _roadPercent;
         List<int> _boundaryTriangles1 = new List<int>();
         List<int> _boundaryTriangles2 = new List<int>();
         List<Vector2> _uvs = new List<Vector2>();
@@ -149,7 +149,7 @@ public class RoadGenerator : MonoBehaviour
         List<int> _triangles = new List<int>();
         Vector2 _tangent;
         Vector3 _tangent3;
-        float _roadPercent;
+
         m_roadMat.SetVector("Vector2_2439372E", new Vector4(2, m_curves.splinePoints.Count - 1, 0, 0));
 
         // Assigning vertices and normals
@@ -163,10 +163,12 @@ public class RoadGenerator : MonoBehaviour
             _tangent.Normalize();
             _tangent3 = new Vector3(-_tangent.y, 0f, _tangent.x);
 
-            _roadPercent = (i-1f) /(float) (m_curves.splinePoints.Count - 1);
+            // Adding the uvs
+            _roadPercent = (i - 1f) /(float) (m_curves.splinePoints.Count - 2f);
             _uvs.Add(new Vector2(0, _roadPercent));
             _uvs.Add(new Vector2(1, _roadPercent));
 
+            // Adding the vertices and normals
             Vector3 _newvec3 = new Vector3(m_curves.splinePoints[i].x, 0f, m_curves.splinePoints[i].y);
             vertices.Add(_newvec3 + (_tangent3 * halfRoadWidth));
             _normals.Add(Vector3.up);
@@ -177,8 +179,8 @@ public class RoadGenerator : MonoBehaviour
             {
                 _boundaryVertices1.Add(_newvec3 + (_tangent3 * halfRoadWidth));
                 _boundaryVertices1.Add((_newvec3 + (_tangent3 * halfRoadWidth)) + Vector3.up * 10f);
-                _boundaryVertices2.Add(_newvec3 + (_tangent3 * halfRoadWidth));
-                _boundaryVertices2.Add((_newvec3 + (_tangent3 * halfRoadWidth)) + Vector3.up * 10f);
+                _boundaryVertices2.Add(_newvec3 + (-_tangent3 * halfRoadWidth));
+                _boundaryVertices2.Add((_newvec3 + (-_tangent3 * halfRoadWidth)) + Vector3.up * 10f);
             }
         }
 
@@ -212,12 +214,11 @@ public class RoadGenerator : MonoBehaviour
         m_mesh[0].mesh.SetVertices(vertices);
         m_mesh[0].mesh.SetTriangles(_triangles, 0);
         m_mesh[0].mesh.SetNormals(_normals);
+        m_mesh[0].mesh.SetUVs(0, _uvs);
         m_mesh[0].mesh.Optimize();
 
         // Use the generated mesh as mesh collider too
         m_meshCollider[0].sharedMesh = m_mesh[0].mesh;
-
-        m_mesh[0].mesh.SetUVs(0, _uvs);
 
         if (m_isRoadBoundary)
         {
@@ -225,6 +226,8 @@ public class RoadGenerator : MonoBehaviour
             m_mesh[1].mesh.SetTriangles(_boundaryTriangles1, 0);
             m_mesh[2].mesh.SetVertices(_boundaryVertices2);
             m_mesh[2].mesh.SetTriangles(_boundaryTriangles2, 0);
+            m_mesh[1].mesh.Optimize();
+            m_mesh[2].mesh.Optimize();
             m_meshCollider[1].sharedMesh = m_mesh[1].mesh;
             m_meshCollider[2].sharedMesh = m_mesh[2].mesh;
         }
@@ -235,6 +238,18 @@ public class RoadGenerator : MonoBehaviour
         foreach (var i in waypoints)
         {
             Debug.DrawLine(i.position, i.position + i.forward * 10f, Color.black);
+        }
+    }
+
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.blue;
+        int j = 0;
+        foreach (var i in vertices)
+        {
+            Gizmos.DrawWireSphere(new Vector3(i.x, 0f, i.z), 1f);
+            //UnityEditor.Handles.Label(new Vector3(i.x, 10f, i.z), j.ToString());
+            j++;
         }
     }
 }
