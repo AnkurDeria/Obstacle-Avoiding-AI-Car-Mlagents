@@ -164,7 +164,7 @@ public class RoadGenerator : MonoBehaviour
             _tangent3 = new Vector3(-_tangent.y, 0f, _tangent.x);
 
             // Adding the uvs
-            _roadPercent = (i - 1f) /(float) (m_curves.splinePoints.Count - 2f);
+            _roadPercent = (i - 1f) / (float)(m_curves.splinePoints.Count - 2f);
             _uvs.Add(new Vector2(0, _roadPercent));
             _uvs.Add(new Vector2(1, _roadPercent));
 

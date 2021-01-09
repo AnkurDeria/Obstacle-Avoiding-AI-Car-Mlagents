@@ -15,7 +15,7 @@ public class ObstacleGenerator : MonoBehaviour
     [Space(-10, order = 1)]
     [Header("2 for moving obstacles", order = 2)]
     public int obstacleState = 0;
-    
+
     public float obstacleSpeed;
     public List<int> waypointOnSpline = new List<int>();
     public List<int> obstaclesBeforeWaypoint = new List<int>();
@@ -33,7 +33,7 @@ public class ObstacleGenerator : MonoBehaviour
     private List<Vector3> m_roadMid = new List<Vector3>();
     private List<Transform> m_obstacles = new List<Transform>();
     private RoadGenerator m_roadGen;
-    
+
     void Start()
     {
         m_roadGen = transform.parent.GetComponentInChildren<RoadGenerator>();
@@ -96,26 +96,26 @@ public class ObstacleGenerator : MonoBehaviour
         _obstacle.GetComponent<Rigidbody>().isKinematic = _kinematic;
 
         int _waypointMark = 2;
-        for (int i = 10; i < (m_roadGen.vertices.Count)/2 - 6; i+=2)
+        for (int i = 10; i < (m_roadGen.vertices.Count) / 2 - 6; i += 2)
         {
             if (UnityEngine.Random.value > 1f - obstacleDensity)
             {
                 float _t = UnityEngine.Random.value;
 
                 // Instantiate obstacle at random point on the road with random rotation 
-                m_obstacles.Add(Instantiate(_obstacle,transform.TransformPoint(new Vector3(Mathf.Lerp(m_roadGen.vertices[2*i].x,m_roadGen.vertices[(2*i)+1].x, _t), _obstacle.GetComponent<SphereCollider>().radius,Mathf.Lerp(m_roadGen.vertices[2 * i].z, m_roadGen.vertices[(2 * i) + 1].z, _t)) ), Quaternion.Euler(0f,UnityEngine.Random.Range(-180f,180f),0f), transform).transform);
+                m_obstacles.Add(Instantiate(_obstacle, transform.TransformPoint(new Vector3(Mathf.Lerp(m_roadGen.vertices[2 * i].x, m_roadGen.vertices[(2 * i) + 1].x, _t), _obstacle.GetComponent<SphereCollider>().radius, Mathf.Lerp(m_roadGen.vertices[2 * i].z, m_roadGen.vertices[(2 * i) + 1].z, _t))), Quaternion.Euler(0f, UnityEngine.Random.Range(-180f, 180f), 0f), transform).transform);
 
                 // Store the midpoint of the road where the obstacle was instantiated
                 m_roadMid.Add(new Vector3((m_roadGen.vertices[2 * i].x + m_roadGen.vertices[(2 * i) + 1].x) / 2f, _obstacle.GetComponent<SphereCollider>().radius, (m_roadGen.vertices[2 * i].z + m_roadGen.vertices[(2 * i) + 1].z) / 2f));
 
                 // Direction of movement of the obstacle if it moves i.e. perpendicular to the direction of the road
                 m_obstacleMoveDir.Add((m_roadGen.vertices[2 * i] - m_roadGen.vertices[(2 * i) + 1]).normalized);
-               
+
                 // Assign random speed to the obstacle
                 m_obstacleRandSpeed.Add(_t);
-                for(int j=_waypointMark;j<waypointOnSpline.Count;j++)
+                for (int j = _waypointMark; j < waypointOnSpline.Count; j++)
                 {
-                    if(i<waypointOnSpline[j])
+                    if (i < waypointOnSpline[j])
                     {
                         obstaclesBeforeWaypoint[j]++;
                         break;

@@ -15,7 +15,7 @@ public class CurveHandler : MonoBehaviour
     /// <summary>
     /// private variables
     /// </summary>
-    
+
     [Header("The lower the value the more dense the mesh")]
     [SerializeField] [Range(0.01f, 10f)] private float m_detailLevel;
 
@@ -34,7 +34,7 @@ public class CurveHandler : MonoBehaviour
 
     [SerializeField] private List<Vector2> m_convexhull = new List<Vector2>();
     [SerializeField] private List<Vector2> m_randPoints = new List<Vector2>();
-  
+
     /// <summary>
     /// Sorts in clockwise order around m_origin point
     /// </summary>
@@ -44,7 +44,7 @@ public class CurveHandler : MonoBehaviour
         private int m_sortOrder;
         public Vector2 Origin { get { return m_origin; } set { m_origin = value; } }
 
-        public ClockwiseComparer(Vector2 _origin,int _sortOrder)
+        public ClockwiseComparer(Vector2 _origin, int _sortOrder)
         {
             m_origin = _origin;
             m_sortOrder = _sortOrder;
@@ -75,13 +75,13 @@ public class CurveHandler : MonoBehaviour
             float _angle2 = Mathf.Atan2(_secondOffset.x, _secondOffset.y);
 
             if (_angle1 < _angle2)
-                return -1*m_sortOrder;
+                return -1 * m_sortOrder;
 
             if (_angle1 > _angle2)
-                return 1* m_sortOrder;
+                return 1 * m_sortOrder;
 
             // Check to see which point is closest
-            return (_firstOffset.sqrMagnitude < _secondOffset.sqrMagnitude) ? -1*m_sortOrder : 1*m_sortOrder;
+            return (_firstOffset.sqrMagnitude < _secondOffset.sqrMagnitude) ? -1 * m_sortOrder : 1 * m_sortOrder;
         }
     }
 
@@ -177,7 +177,7 @@ public class CurveHandler : MonoBehaviour
         CreateConvexhull(m_randPoints, m_randPoints.Count);
 
         // Sort the convexhull in clockwise order
-        m_convexhull.Sort((new CurveHandler.ClockwiseComparer(new Vector2(0f, 0f),sortOrder)));
+        m_convexhull.Sort((new CurveHandler.ClockwiseComparer(new Vector2(0f, 0f), sortOrder)));
 
         // Clear spline from previous episode if any
         splinePoints.Clear();
@@ -254,7 +254,7 @@ public class CurveHandler : MonoBehaviour
         }
 
         // Sort the convexhull in clockwise order
-        m_convexhull.Sort((new CurveHandler.ClockwiseComparer(new Vector2(0f, 0f),sortOrder)));
+        m_convexhull.Sort((new CurveHandler.ClockwiseComparer(new Vector2(0f, 0f), sortOrder)));
     }
 
     /// <summary>
@@ -262,31 +262,31 @@ public class CurveHandler : MonoBehaviour
     /// </summary>
     private void FixAngles()
     {
-        
+
         Vector2 _prevVec;
         Vector2 _nextVec;
         float _angle;
         float _nextVecLen;
-        float _nAngle ;
-        float _diff ;
+        float _nAngle;
+        float _diff;
         float _cos;
         float _sin;
-        float _newX ;
+        float _newX;
         float _newY;
         for (int i = 0; i < m_convexhull.Count; i++)
         {
             int _previousPoint = ((i - 1 + m_convexhull.Count) % m_convexhull.Count);
             int _nextPoint = (i + 1) % m_convexhull.Count;
 
-            
+
             // Normalize vectors going to the next and coming from the previous point. 
-             _prevVec = (m_convexhull[i] - m_convexhull[_previousPoint]).normalized;
-             _nextVec = (m_convexhull[_nextPoint] - m_convexhull[i]);
+            _prevVec = (m_convexhull[i] - m_convexhull[_previousPoint]).normalized;
+            _nextVec = (m_convexhull[_nextPoint] - m_convexhull[i]);
             _nextVecLen = _nextVec.magnitude;
             _nextVec.Normalize();
 
             // Perp dot product
-             _angle = Mathf.Atan2(_prevVec.x * _nextVec.y - _prevVec.y * _nextVec.x, _prevVec.x * _nextVec.x + _prevVec.y * _nextVec.y);
+            _angle = Mathf.Atan2(_prevVec.x * _nextVec.y - _prevVec.y * _nextVec.x, _prevVec.x * _nextVec.x + _prevVec.y * _nextVec.y);
 
             if (Mathf.Abs(_angle * Mathf.Rad2Deg) <= 100)
             {
@@ -317,12 +317,12 @@ public class CurveHandler : MonoBehaviour
         List<Vector2> _rSet = new List<Vector2>();
 
         // MaxDisp i.e max displacement can be changed according to one's needs
-        const float _maxDisp = 20f; 
-        
+        const float _maxDisp = 20f;
+
         for (int i = 0; i < m_convexhull.Count; i++)
         {
             // Max displacement value based on difficulty
-            float _dispLen = Mathf.Pow(m_difficulty,UnityEngine.Random.value) * _maxDisp;
+            float _dispLen = Mathf.Pow(m_difficulty, UnityEngine.Random.value) * _maxDisp;
 
             // Selects a random displacement direction close to the perpendicular of the direction of path
             _normal = (m_convexhull[(i + 1) % m_convexhull.Count] - m_convexhull[i]).normalized;
@@ -355,19 +355,19 @@ public class CurveHandler : MonoBehaviour
         const float _mindist = 80f;
         Vector2 _vec;
 
-        for (int i = 0; i < m_convexhull.Count - 1 ; i++)  
+        for (int i = 0; i < m_convexhull.Count - 1; i++)
         {
-            
-            for (int j = i + 1; j < m_convexhull.Count; j++)  
+
+            for (int j = i + 1; j < m_convexhull.Count; j++)
             {
-                if (Vector2.Distance(m_convexhull[i],m_convexhull[j]) < _mindist)  
+                if (Vector2.Distance(m_convexhull[i], m_convexhull[j]) < _mindist)
                 {
                     _vec = m_convexhull[j] - m_convexhull[i];
                     float _dist = _vec.magnitude;
                     _vec /= _dist;
                     float _difference = _mindist - _dist;
-                    _vec *= (_difference/2f);
-                  
+                    _vec *= (_difference / 2f);
+
                     m_convexhull[j] += _vec;
                     m_convexhull[i] -= _vec;
                 }
@@ -380,7 +380,7 @@ public class CurveHandler : MonoBehaviour
     {
         Gizmos.color = Color.red;
         int j = 0;
-        foreach(var i in m_convexhull)
+        foreach (var i in m_convexhull)
         {
             Gizmos.DrawWireSphere(new Vector3(i.x, 0f, i.y), 5f);
             //UnityEditor.Handles.Label(new Vector3(i.x, 10f, i.y), j.ToString());

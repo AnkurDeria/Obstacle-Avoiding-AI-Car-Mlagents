@@ -77,10 +77,10 @@ public class CarAgent : Agent
     {
         // Agent velocity
         m_velocity = transform.InverseTransformDirection(m_carRigidbody.velocity) / 20f;
-        sensor.AddObservation(new Vector2(m_velocity.x,m_velocity.z)); // vec2
+        sensor.AddObservation(new Vector2(m_velocity.x, m_velocity.z)); // vec2
 
         // Distance to incoming checkpoint
-        sensor.AddObservation(m_distanceToTarget/30f); // float
+        sensor.AddObservation(m_distanceToTarget / 30f); // float
 
         // Agent's normalized local position
         sensor.AddObservation(new Vector2(transform.localPosition.x / 500f, transform.localPosition.z / 500f)); // vec2
@@ -88,7 +88,7 @@ public class CarAgent : Agent
         // Agent's normalized torque and steering angle
         sensor.AddObservation(m_carController.GetTorque()); //float
         sensor.AddObservation(m_carController.GetSteeringAngle()); //float
-        
+
         // Calculate the direction to incoming checkpoint
         m_dirToTarget = (m_checkpointPos - transform.localPosition).normalized;
 
@@ -204,8 +204,8 @@ public class CarAgent : Agent
             //Debug.Log("Collided with obstacle, negative reward = " + (-1f * (m_obstacleHit + 1) * (m_currentReward / 5f)));
 
             // Reset reward to -1 if agent hits obstacle
-            m_currentReward += -1f * (m_obstacleHit+1) * (m_currentReward / 10f);
-            AddReward(-1f * (m_obstacleHit+1) * (m_currentReward/10f));
+            m_currentReward += -1f * (m_obstacleHit + 1) * (m_currentReward / 10f);
+            AddReward(-1f * (m_obstacleHit + 1) * (m_currentReward / 10f));
 
             m_obstacleHit++;
         }
@@ -353,7 +353,7 @@ public class CarAgent : Agent
     {
         foreach (WheelCollider tempcol in m_wheelColliders)
         {
-            if(transform.position.y >=1f || transform.position.y<=0f)
+            if (transform.position.y >= 1f || transform.position.y <= 0f)
             {
                 NextEpisode(-1f);
             }
@@ -393,9 +393,9 @@ public class CarAgent : Agent
     private void FixedUpdate()
     {
         m_steps++;
-       
+
         m_allGrounded = true;
-        
+
         //CalcLaneOffset();
         CheckGrounded();
         CheckMovement();
@@ -425,7 +425,7 @@ public class CarAgent : Agent
         //Debug.Log("Dot product (agent forward,dirToTarget) = "+Vector3.Dot(transform.forward, m_dirToTarget)); 
         //Debug.Log("Velocity = " + transform.InverseTransformDirection(m_carRigidbody.velocity)/20f);
         //Debug.Log("Steering = " + m_carController.GetSteeringAngle());
-        
+
         //Physics.Raycast(transform.position + (transform.forward * (1.97f)), Vector3.down, out m_rayout, 10f);
         //Debug.Log("Raycast hit = " + m_rayout.collider.tag);
 
