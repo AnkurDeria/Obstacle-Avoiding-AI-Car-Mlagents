@@ -111,23 +111,28 @@ public class RoadGenerator : MonoBehaviour
         _waypoint.AddComponent<BoxCollider>();
         _waypoint.isStatic = true;
         BoxCollider _waypointcol = _waypoint.GetComponent<BoxCollider>();
-        _waypointcol.size = new Vector3(halfRoadWidth, 2 * halfRoadWidth, 0.1f);
+        _waypointcol.size = new Vector3(2 * halfRoadWidth, 2 * halfRoadWidth, 0.1f);
         _waypointcol.isTrigger = true;
 
         // Instantiating the checkpoints along the road with proper rotation
+        Quaternion _rot;
         Vector3 _vec1;
         Vector3 _vec2;
         Vector3 _vec3;
-
         for (int i = 8; i < m_curves.splinePoints.Count - 5; i += 5)
         {
+            // Waypoint position
             _vec1 = new Vector3(m_curves.splinePoints[i + 1].x, 0f, m_curves.splinePoints[i + 1].y);
             _vec2 = new Vector3(m_curves.splinePoints[i - 1].x, 0f, m_curves.splinePoints[i - 1].y);
             _vec3 = ((new Vector3(m_curves.splinePoints[i].x, 0f, m_curves.splinePoints[i].y) - _vec2) +
                      (_vec1 - new Vector3(m_curves.splinePoints[i].x, 0f, m_curves.splinePoints[i].y))) / 2f;
-            Quaternion _rot = Quaternion.LookRotation(transform.TransformDirection(_vec3.normalized), Vector3.up);
+
+            // Rotation
+            _rot = Quaternion.LookRotation(transform.TransformDirection(_vec3.normalized), Vector3.up);
+
             waypoints.Add(Instantiate(_waypoint, transform.TransformPoint(new Vector3(m_curves.splinePoints[i].x, halfRoadWidth, m_curves.splinePoints[i].y)), _rot, m_waypointParent).transform);
 
+            // Which spline point the waypoint is on
             m_obstacle.waypointOnSpline.Add(i);
         }
 
@@ -150,6 +155,7 @@ public class RoadGenerator : MonoBehaviour
         Vector2 _tangent;
         Vector3 _tangent3;
 
+        // Setting the dash lines of the road material according to the number of spline points
         m_roadMat.SetVector("Vector2_2439372E", new Vector4(2, m_curves.splinePoints.Count - 1, 0, 0));
 
         // Assigning vertices and normals

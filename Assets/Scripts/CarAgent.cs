@@ -1,4 +1,5 @@
-﻿using Unity.MLAgents;
+﻿using System;
+using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Sensors;
 using UnityEngine;
@@ -109,12 +110,12 @@ public class CarAgent : Agent
         m_roadGen.GenTrack((int)(Mathf.Sign(_rand) * Mathf.Ceil(Mathf.Abs(_rand))));
 
         // Randomly sets road with obstacles or no obstacles (put range 0-3 if you want obstacles to move)
-        m_obstacleGen.obstacleState = UnityEngine.Random.Range(0, 2);
+        m_obstacleGen.obstacleState = UnityEngine.Random.Range(1, 3);
         m_obstacleGen.obstacleDensity = UnityEngine.Random.Range(0.2f, 0.9f);
         m_obstacleGen.ObstacleStateChange();
 
         // Sets random speed for obstacles
-        //m_obstacleGen.obstacleSpeed = UnityEngine.Random.Range(0.1f, 2f);
+        m_obstacleGen.obstacleSpeed = UnityEngine.Random.Range(0.1f, 2f);
     }
 
     private void PrivateVariableReset()
@@ -173,7 +174,7 @@ public class CarAgent : Agent
         transform.localPosition += transform.right * UnityEngine.Random.Range((-m_roadGen.halfRoadWidth + 2f), (m_roadGen.halfRoadWidth - 2f));
 
         // Randomize rotation
-        transform.Rotate(new Vector3(0f, UnityEngine.Random.Range(-80f, 80f), 0f));
+        transform.Rotate(new Vector3(0f, UnityEngine.Random.Range(-60f, 60f), 0f));
 
         // Assigns starting checkpoint
         m_checkpointPos = (new Vector3(m_nextCheckpoint.localPosition.x, transform.localPosition.y, m_nextCheckpoint.localPosition.z));
@@ -311,12 +312,12 @@ public class CarAgent : Agent
         }
 
         // If agent's speed is too low or its off the track for a certain amount of time then end the episode
-        if (m_carRigidbody.velocity.magnitude < 0.3f || !m_allGrounded)
+        if (m_carRigidbody.velocity.magnitude < 0.5f || !m_allGrounded)
         {
             m_deadCounter++;
         }
 
-        if (m_carRigidbody.velocity.magnitude > 0.3f && m_allGrounded)
+        if (m_carRigidbody.velocity.magnitude > 0.5f && m_allGrounded)
         {
             m_deadCounter = 0;
         }
@@ -390,11 +391,21 @@ public class CarAgent : Agent
         EndEpisode();
     }
 
+    private void InfiniteRewardCheck()
+    {
+        if (Mathf.Abs(m_currentReward) > 10000)
+        {
+            NextEpisode(0f);
+        }
+    }
+
     private void FixedUpdate()
     {
         m_steps++;
 
         m_allGrounded = true;
+
+        InfiniteRewardCheck();
 
         //CalcLaneOffset();
         CheckGrounded();
@@ -429,6 +440,7 @@ public class CarAgent : Agent
         //Physics.Raycast(transform.position + (transform.forward * (1.97f)), Vector3.down, out m_rayout, 10f);
         //Debug.Log("Raycast hit = " + m_rayout.collider.tag);
 
+        //m_dirToTarget = (m_checkpointPos - transform.localPosition).normalized;
         // Line showing direction to incoming checking
         //Debug.DrawLine(transform.position, transform.position + m_dirToTarget * 10f, Color.red);
         // Line showing agent's forward direction

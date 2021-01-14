@@ -14,7 +14,7 @@ public class ObstacleGenerator : MonoBehaviour
     [Header("0 for no obstacles, 1 for static obstacles,", order = 0)]
     [Space(-10, order = 1)]
     [Header("2 for moving obstacles", order = 2)]
-    public int obstacleState = 0;
+    [Range(0, 2)] public int obstacleState = 0;
 
     public float obstacleSpeed;
     public List<int> waypointOnSpline = new List<int>();
@@ -95,12 +95,14 @@ public class ObstacleGenerator : MonoBehaviour
         _obstacle.AddComponent<Rigidbody>().mass = 500;
         _obstacle.GetComponent<Rigidbody>().isKinematic = _kinematic;
 
+        float _t;
         int _waypointMark = 2;
-        for (int i = 10; i < (m_roadGen.vertices.Count) / 2 - 6; i += 2)
+
+        for (int i = 10; i < (m_roadGen.vertices.Count) / 2 - 6; i += 5)
         {
             if (UnityEngine.Random.value > 1f - obstacleDensity)
             {
-                float _t = UnityEngine.Random.value;
+                _t = UnityEngine.Random.value;
 
                 // Instantiate obstacle at random point on the road with random rotation 
                 m_obstacles.Add(Instantiate(_obstacle, transform.TransformPoint(new Vector3(Mathf.Lerp(m_roadGen.vertices[2 * i].x, m_roadGen.vertices[(2 * i) + 1].x, _t), _obstacle.GetComponent<SphereCollider>().radius, Mathf.Lerp(m_roadGen.vertices[2 * i].z, m_roadGen.vertices[(2 * i) + 1].z, _t))), Quaternion.Euler(0f, UnityEngine.Random.Range(-180f, 180f), 0f), transform).transform);
@@ -139,7 +141,6 @@ public class ObstacleGenerator : MonoBehaviour
             for (int i = 0; i < m_obstacles.Count; i++)
             {
                 m_obstacles[i].GetComponent<Rigidbody>().MovePosition(transform.TransformPoint(m_roadMid[i]) + (transform.TransformDirection(m_obstacleMoveDir[i]) * Mathf.Sin(Time.time * m_obstacleRandSpeed[i] * obstacleSpeed) * (m_roadGen.halfRoadWidth - 0.5f)));
-
             }
         }
     }
