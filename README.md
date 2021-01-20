@@ -5,6 +5,8 @@ The track is procedurally generated every episode using Catmull-Rom splines base
 
 The car model is made using blender.
 
+
+
 External assets used in this project :
 
 Arcade car physics by saarg
@@ -12,6 +14,8 @@ https://assetstore.unity.com/packages/tools/physics/arcade-car-physics-119484
 
 Free HDR Sky by ProAssets
 https://assetstore.unity.com/packages/2d/textures-materials/sky/free-hdr-sky-61217
+
+
 
 Limitations at the moment:
 
