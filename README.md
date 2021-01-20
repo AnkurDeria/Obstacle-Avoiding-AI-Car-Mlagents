@@ -1,3 +1,5 @@
+![](AI-car-demo1.gif)
+![](AI-car-demo2.gif)
 Deep Reinforcement learning project which features a simple obstacle avoiding AI car made with [Unity ML Agents](https://github.com/Unity-Technologies/ml-agents).
 The Agent controls acceleration and steering (both continuous). Observations include the normalized local position, velocity, angular velocity, steering angle, torque and the dot product of the Agent's forward direction and the direction to the next waypoint. The Agent was trained with PPO.
 
