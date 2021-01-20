@@ -12,3 +12,10 @@ https://assetstore.unity.com/packages/tools/physics/arcade-car-physics-119484
 
 Free HDR Sky by ProAssets
 https://assetstore.unity.com/packages/2d/textures-materials/sky/free-hdr-sky-61217
+
+Limitations at the moment:
+
+- The procedural track may rarely intersect with itself.
+- The track is 2D i.e. the Y location of the track is 0 everywhere.
+- The Agent does not perform well at sharp turns especially with obstacles at those turns.
+- The Agent stops moving if it collides with an obstacle head on.
