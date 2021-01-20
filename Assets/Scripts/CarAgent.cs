@@ -109,13 +109,15 @@ public class CarAgent : Agent
         // Generates the road 
         m_roadGen.GenTrack((int)(Mathf.Sign(_rand) * Mathf.Ceil(Mathf.Abs(_rand))));
 
-        // Randomly sets road with obstacles or no obstacles (put range 0-3 if you want obstacles to move)
-        m_obstacleGen.obstacleState = UnityEngine.Random.Range(1, 3);
-        m_obstacleGen.obstacleDensity = UnityEngine.Random.Range(0.2f, 0.9f);
+        // Randomly sets road with obstacles or no obstacles (0 for no obstalces
+        //                                                    1 for static obstacles
+        //                                                    2 for moving obstacles)
+        m_obstacleGen.obstacleState = 1; //UnityEngine.Random.Range(1, 2);
+        m_obstacleGen.obstacleDensity = UnityEngine.Random.Range(0.6f, 1.1f);
         m_obstacleGen.ObstacleStateChange();
 
         // Sets random speed for obstacles
-        m_obstacleGen.obstacleSpeed = UnityEngine.Random.Range(0.1f, 2f);
+        //m_obstacleGen.obstacleSpeed = UnityEngine.Random.Range(0.1f, 2f);
     }
 
     private void PrivateVariableReset()
@@ -311,7 +313,7 @@ public class CarAgent : Agent
             AddReward((0.0005f * ((Vector3.Dot(m_carRigidbody.velocity.normalized, transform.forward) / 2f) + 0.5f)));
         }
 
-        // If agent's speed is too low or its off the track for a certain amount of time then end the episode
+        // If agent's speed is too low or its off the track for a certain amount of time then start giving negative rewards
         if (m_carRigidbody.velocity.magnitude < 0.5f || !m_allGrounded)
         {
             m_deadCounter++;
@@ -324,7 +326,8 @@ public class CarAgent : Agent
 
         if (m_deadCounter >= 500)
         {
-            NextEpisode(-1f);
+            m_currentReward += -0.001f;
+            AddReward(-0.001f);
         }
     }
 
@@ -371,8 +374,7 @@ public class CarAgent : Agent
 
                 if (m_out.collider.CompareTag("DeadZone"))
                 {
-                    AddReward(-1f * m_nextCheckpointNumber);
-                    EndEpisode();
+                    NextEpisode(-1f);
 
                     //m_currentReward += -0.5f;
                     //AddReward(-0.5f);
@@ -428,14 +430,14 @@ public class CarAgent : Agent
 
     private void Update()
     {
-        //Debug.Log("Local position  = " + transform.localPosition);
-        //Debug.Log("Obstacle hit = " + m_obstacleHit);
+        //Debug.Log("Local position  = " + new Vector2(transform.localPosition.x / 500, transform.localPosition.z / 500));
         //Debug.Log("Lane offset = " + m_laneOffset);
-        //Debug.Log("Angular velocity = " + transform.InverseTransformDirection(m_carRigidbody.angularVelocity)/3f);
+        //Debug.Log("Angular velocity = " + (transform.InverseTransformDirection(m_carRigidbody.angularVelocity)/3f).y);
         //m_dirToTarget = (m_checkpointPos - transform.localPosition).normalized;
-        //Debug.Log("Dot product (agent forward,dirToTarget) = "+Vector3.Dot(transform.forward, m_dirToTarget)); 
+        Debug.Log("Dot product (agent forward,dirToTarget) = "+Vector3.Dot(transform.forward, m_dirToTarget)); 
         //Debug.Log("Velocity = " + transform.InverseTransformDirection(m_carRigidbody.velocity)/20f);
         //Debug.Log("Steering = " + m_carController.GetSteeringAngle());
+        //Debug.Log("Torque = " + m_carController.GetTorque());
 
         //Physics.Raycast(transform.position + (transform.forward * (1.97f)), Vector3.down, out m_rayout, 10f);
         //Debug.Log("Raycast hit = " + m_rayout.collider.tag);
