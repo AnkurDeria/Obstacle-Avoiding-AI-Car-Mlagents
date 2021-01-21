@@ -43,3 +43,6 @@ Instructions to train in Google Colab :
 - Make a x64 Linux server build in Unity
 - Upload the build folder to Google Drive
 - Go to Google Colab and use [this Jupyter Notebook](UnityProjects_MLAgents.ipynb)
+
+
+Note - Unity might ask for a asset database version upgrade, click on yes.
