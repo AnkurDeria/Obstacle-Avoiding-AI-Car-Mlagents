@@ -12,6 +12,7 @@ The track is procedurally generated every episode using Catmull-Rom splines, bas
 The car model is made using blender.
 
 Unity version used : 2019.4.17f1
+
 ML-Agents version used : 1.7.2, release 12
 
 
