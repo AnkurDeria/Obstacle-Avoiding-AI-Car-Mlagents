@@ -25,7 +25,7 @@ https://assetstore.unity.com/packages/2d/textures-materials/sky/free-hdr-sky-612
 
 
 
-Limitations at the moment:
+Limitations at the moment :
 
 - The procedural track may rarely intersect with itself.
 - The track is 2D i.e. the Y location of the track is 0 everywhere.
