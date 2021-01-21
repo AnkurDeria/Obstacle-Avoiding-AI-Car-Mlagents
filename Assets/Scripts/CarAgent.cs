@@ -176,7 +176,7 @@ public class CarAgent : Agent
         transform.localPosition += transform.right * UnityEngine.Random.Range((-m_roadGen.halfRoadWidth + 2f), (m_roadGen.halfRoadWidth - 2f));
 
         // Randomize rotation
-        transform.Rotate(new Vector3(0f, UnityEngine.Random.Range(-60f, 60f), 0f));
+        transform.Rotate(new Vector3(0f, UnityEngine.Random.Range(-45f, 45f), 0f));
 
         // Assigns starting checkpoint
         m_checkpointPos = (new Vector3(m_nextCheckpoint.localPosition.x, transform.localPosition.y, m_nextCheckpoint.localPosition.z));
