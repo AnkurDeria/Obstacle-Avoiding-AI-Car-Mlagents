@@ -16,6 +16,8 @@ Unity version used : 2019.4.17f1
 ML-Agents version used : 1.7.2, release 12
 
 
+
+
 External assets used in this project :
 
 Arcade car physics by saarg
@@ -23,6 +25,8 @@ https://assetstore.unity.com/packages/tools/physics/arcade-car-physics-119484
 
 Free HDR Sky by ProAssets
 https://assetstore.unity.com/packages/2d/textures-materials/sky/free-hdr-sky-61217
+
+
 
 
 
