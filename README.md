@@ -11,6 +11,8 @@ The track is procedurally generated every episode using Catmull-Rom splines, bas
 
 The car model is made using blender.
 
+Unity version used : 2019.4.17f1
+ML-Agents version used : 1.7.2, release 12
 
 
 External assets used in this project :
@@ -29,3 +31,8 @@ Limitations at the moment:
 - The track is 2D i.e. the Y location of the track is 0 everywhere.
 - The Agent does not perform well at sharp turns especially with obstacles at those turns.
 - The Agent stops moving if it collides with an obstacle head on.
+
+Instructions to train in Google Colab :
+- Make a x64 Linux server build in Unity
+- Upload the build folder to Google Drive
+- Go to Google Colab and use [this Jupyter Notebook](UnityProjects_MLAgents.ipynb)
